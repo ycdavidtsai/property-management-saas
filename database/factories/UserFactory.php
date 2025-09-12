@@ -41,4 +41,58 @@ class UserFactory extends Factory
             'email_verified_at' => null,
         ]);
     }
+
+    // database/factories/UserFactory.php - Add these methods
+    public function landlord()
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'role' => 'landlord',
+                'permissions' => [
+                    'properties.view', 'properties.create', 'properties.edit',
+                    'units.view', 'units.create', 'units.edit',
+                    'tenants.view', 'tenants.create', 'tenants.edit',
+                    'leases.view', 'leases.create', 'leases.edit',
+                    'maintenance.view', 'maintenance.assign',
+                    'payments.view', 'reports.view'
+                ]
+            ];
+        });
+    }
+
+    public function tenant()
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'role' => 'tenant',
+                'permissions' => [
+                    'maintenance.view',
+                    'payments.view'
+                ]
+            ];
+        });
+    }
+
+    public function admin()
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'role' => 'admin',
+                'permissions' => [] // Admin gets all permissions by default
+            ];
+        });
+    }
+
+    public function vendor()
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'role' => 'vendor',
+                'permissions' => [
+                    'maintenance.view',
+                    'maintenance.complete'
+                ]
+            ];
+        });
+    }
 }

@@ -21,6 +21,9 @@
                     <a href="{{ route('properties.index') }}" class="flex items-center px-3 py-2 text-gray-700 rounded hover:bg-gray-100">
                         Properties
                     </a>
+                    <a href="{{ route('tenants.index') }}" class="flex items-center px-3 py-2 text-gray-700 rounded hover:bg-gray-100">
+                        Tenants
+                    </a>
                     <a href="{{ route('profile.edit') }}" class="flex items-center px-3 py-2 text-gray-700 rounded hover:bg-gray-100">
                         Profile
                     </a>

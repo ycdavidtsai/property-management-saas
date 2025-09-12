@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PropertyController;
+use App\Http\Controllers\TenantController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -26,6 +27,14 @@ Route::middleware(['auth', 'verified', 'organization'])->group(function () {
         Route::get('/{property}', [PropertyController::class, 'show'])->name('show');
         Route::get('/{property}/edit', [PropertyController::class, 'edit'])->name('edit');
         Route::post('/', [PropertyController::class, 'store'])->name('store');
+    });
+
+    // Tenant Management Routes
+    Route::prefix('tenants')->name('tenants.')->group(function () {
+        Route::get('/', [TenantController::class, 'index'])->name('index');
+        Route::get('/create', [TenantController::class, 'create'])->name('create');
+        Route::get('/{tenant}', [TenantController::class, 'show'])->name('show');
+        Route::get('/{tenant}/edit', [TenantController::class, 'edit'])->name('edit');
     });
 });
 
