@@ -8,6 +8,8 @@ use Livewire\Component;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 
+use App\Services\RoleService;
+
 class TenantForm extends Component
 {
     public User $tenant;
@@ -126,6 +128,9 @@ class TenantForm extends Component
                 $this->tenant->organization_id = session('current_organization_id');
                 $this->tenant->role = 'tenant';
                 $this->tenant->password = Hash::make($this->password);
+
+                // Set proper tenant permissions using RoleService
+                $this->tenant->permissions = RoleService::getPermissionsForRole('tenant');
             } elseif ($this->password) {
                 $this->tenant->password = Hash::make($this->password);
             }

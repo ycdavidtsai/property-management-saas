@@ -51,7 +51,7 @@ class User extends Authenticatable
 
     public function belongsToOrganization($organizationId): bool
     {
-        return $this->organization_id === $organizationId;
+        return $this->organization_id == $organizationId;
     }
 
     public function hasRole(string $role): bool
