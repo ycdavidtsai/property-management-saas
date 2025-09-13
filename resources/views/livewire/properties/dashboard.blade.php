@@ -1,54 +1,6 @@
 <!-- resources/views/livewire/properties/dashboard.blade.php -->
 <div>
-    <!-- Metrics Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div class="bg-white rounded-lg shadow-sm border p-6">
-        <div class="flex items-center">
-            <div class="flex-1">
-                <p class="text-sm font-medium text-gray-600">Total Units</p>
-                <p class="text-2xl font-bold text-gray-900">{{ $metrics['totalUnits'] }}</p>
-            </div>
-        </div>
-    </div>
-
-    <div class="bg-white rounded-lg shadow-sm border p-6">
-        <div class="flex items-center">
-            <div class="flex-1">
-                <p class="text-sm font-medium text-gray-600">Occupied Units</p>
-                <p class="text-2xl font-bold text-green-600">{{ $metrics['occupiedUnits'] }}</p>
-            </div>
-        </div>
-    </div>
-
-    <div class="bg-white rounded-lg shadow-sm border p-6">
-        <div class="flex items-center">
-            <div class="flex-1">
-                <p class="text-sm font-medium text-gray-600">Vacant Units</p>
-                <p class="text-2xl font-bold text-orange-600">{{ $metrics['vacantUnits'] ?? ($metrics['totalUnits'] - $metrics['occupiedUnits']) }}</p>
-            </div>
-        </div>
-    </div>
-
-    <div class="bg-white rounded-lg shadow-sm border p-6">
-        <div class="flex items-center">
-            <div class="flex-1">
-                <p class="text-sm font-medium text-gray-600">Occupancy Rate</p>
-                <p class="text-2xl font-bold text-blue-600">{{ $metrics['occupancyRate'] }}%</p>
-            </div>
-        </div>
-    </div>
-
-        <div class="bg-white rounded-lg shadow-sm border p-6">
-            <div class="flex items-center">
-                <div class="flex-1">
-                    <p class="text-sm font-medium text-gray-600">Monthly Revenue</p>
-                    <p class="text-2xl font-bold text-purple-600">${{ number_format($metrics['monthlyRevenue']) }}</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Properties Grid -->
+        <!-- Properties Grid -->
     <div class="mb-6">
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-lg font-semibold text-gray-900">Properties</h3>
@@ -97,6 +49,57 @@
                     </div>
                 </div>
             @endforelse
+        </div>
+    </div>
+
+    <!-- Metrics Cards -->
+    <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-semibold text-gray-900">Properties Overview</h3>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow-sm border p-6">
+            <div class="flex items-center">
+                <div class="flex-1">
+                    <p class="text-sm font-medium text-gray-600">Total Units</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ $metrics['totalUnits'] }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-sm border p-6">
+            <div class="flex items-center">
+                <div class="flex-1">
+                    <p class="text-sm font-medium text-gray-600">Occupied Units</p>
+                    <p class="text-2xl font-bold text-green-600">{{ $metrics['occupiedUnits'] }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-sm border p-6">
+            <div class="flex items-center">
+                <div class="flex-1">
+                    <p class="text-sm font-medium text-gray-600">Vacant Units</p>
+                    <p class="text-2xl font-bold text-orange-600">{{ $metrics['vacantUnits'] ?? ($metrics['totalUnits'] - $metrics['occupiedUnits']) }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-sm border p-6">
+            <div class="flex items-center">
+                <div class="flex-1">
+                    <p class="text-sm font-medium text-gray-600">Occupancy Rate</p>
+                    <p class="text-2xl font-bold text-blue-600">{{ $metrics['occupancyRate'] }}%</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-sm border p-6">
+            <div class="flex items-center">
+                <div class="flex-1">
+                    <p class="text-sm font-medium text-gray-600">Monthly Revenue</p>
+                    <p class="text-2xl font-bold text-purple-600">${{ number_format($metrics['monthlyRevenue']) }}</p>
+                </div>
+            </div>
         </div>
     </div>
 </div>
