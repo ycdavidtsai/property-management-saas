@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class User extends Authenticatable
 {
@@ -114,15 +115,35 @@ class User extends Authenticatable
         return $this->hasOne(TenantProfile::class);
     }
 
-    // public function leases()
-    // {
-    //     return $this->hasMany(Lease::class, 'tenant_id');
-    // }
+    // Add these methods to your existing User model relationships section
 
-    // public function activeLeases()
-    // {
-    //     return $this->leases()->where('status', 'active');
-    // }
+
+
+    /**
+     * Lease relationships for tenant users
+     */
+    public function leases(): BelongsToMany
+    {
+        return $this->belongsToMany(Lease::class, 'lease_tenant', 'tenant_id', 'lease_id');
+    }
+
+    /**
+     * Get the active lease for this tenant
+     *
+     * @return Lease|null
+     */
+    public function activeLease()
+    {
+        return $this->leases()->where('status', 'active')->first();
+    }
+
+    /**
+     * Check if this tenant has an active lease
+     */
+    public function hasActiveLease(): bool
+    {
+        return $this->activeLease() !== null;
+    }
 
     // public function maintenanceRequests()
     // {

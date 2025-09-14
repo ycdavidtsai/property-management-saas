@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class TenantController extends Controller
 {
@@ -35,5 +36,18 @@ class TenantController extends Controller
         }
 
         return view('tenants.edit', compact('tenant'));
+    }
+
+    /**
+     * Display tenant portal (tenant's lease information)
+     */
+    public function portal()
+    {
+        // Only for tenant users
+        if (Auth::user()->role !== 'tenant') {
+            abort(403, 'Access denied. This portal is for tenants only.');
+        }
+
+        return view('tenants.portal');
     }
 }

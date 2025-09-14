@@ -28,14 +28,13 @@ class EnsureOrganizationAccess
             }
 
             session(['current_organization_id' => $organizationId]);
+            
+        // 2. User Role Check (found role= tenant, redirect, by pass default to dashboard), 
+        // check Auth/AuthenticatedSessionController.php store() method for login redirect logic
 
-        // 2. Permission Check (new logic)
-            // Admin, manager and landlord have all permissions
-            if (!in_array($user->role, ['admin', 'manager', 'landlord'])) {
-                session(['current_organization_id' => null]);
-                Auth::logout();
-                return response()->view('welcome');// create a message page/route later
-            }
+            // if ($user->role === 'tenant' && !$request->routeIs('tenant.portal')) {
+            //     return redirect()->route('tenant.portal');
+            // }
 
         return $next($request);
     }

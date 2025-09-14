@@ -46,4 +46,41 @@ class Property extends Model
     {
         return $this->units()->where('status', 'vacant');
     }
+
+    // Add these methods relateed to lease to your existing Property model for enhanced lease tracking
+    /**
+     * Get all leases for units in this property
+     */
+    public function leases()
+    {
+        return Lease::whereHas('unit', function ($query) {
+            $query->where('property_id', $this->id);
+        });
+    }
+
+    /**
+     * Get active leases count for this property
+     */
+    public function getActiveLeasesCountAttribute(): int
+    {
+        return $this->leases()->where('status', 'active')->count();
+    }
+
+    /**
+     * Get occupied units count
+     */
+    public function getOccupiedUnitsCountAttribute(): int
+    {
+        return $this->units()->where('status', 'occupied')->count();
+    }
+
+    /**
+     * Get vacancy rate as percentage
+     */
+    public function getVacancyRateAttribute(): float
+    {
+        if ($this->total_units == 0) return 0;
+        $vacant = $this->total_units - $this->occupied_units_count;
+        return round(($vacant / $this->total_units) * 100, 1);
+    }
 }

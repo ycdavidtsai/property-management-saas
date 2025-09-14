@@ -1,15 +1,14 @@
 <!-- resources/views/properties/index.blade.php -->
 <x-app-layout>
-    <x-slot name="title">Dashboard</x-slot>
+    <x-slot name="header">
+        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+            {{ __('Properties') }}
+        </h2>
+    </x-slot>
 
-    <div class="space-y-6">
-        {{-- <div class="flex justify-between items-center">
-            <h2 class="text-2xl font-bold text-gray-900">Properties</h2>
-            <a href="{{ route('properties.create') }}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                Add Property
-            </a>
-        </div> --}}
-
-        <livewire:properties.dashboard />
+    <div class="py-12">
+        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <livewire:properties.dashboard />
+        </div>
     </div>
 </x-app-layout>

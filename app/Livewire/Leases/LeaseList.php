@@ -1,21 +1,19 @@
 <?php
+namespace App\Livewire\Leases;
 
-namespace App\Livewire\Tenants;
-
-use App\Models\User;
+use App\Models\Lease;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Illuminate\Support\Facades\Auth;
 
-class TenantList extends Component
+class LeaseList extends Component
 {
-
     use WithPagination;
 
     public $search = '';
     public $statusFilter = '';
-    public $sortField = 'name';
-    public $sortDirection = 'asc';
+    public $sortBy = 'start_date';
+    public $sortDirection = 'desc';
 
     protected $queryString = [
         'search' => ['except' => ''],
@@ -34,42 +32,39 @@ class TenantList extends Component
 
     public function sortBy($field)
     {
-        if ($this->sortField === $field) {
+        if ($this->sortBy === $field) {
             $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
         } else {
             $this->sortDirection = 'asc';
         }
-
-        $this->sortField = $field;
+        $this->sortBy = $field;
     }
 
     public function render()
     {
+
         // Only for admin, manager, landlord users
         if (!in_array(Auth::user()->role, ['admin', 'manager', 'landlord'])) {
             abort(403, 'Access denied. This portal is for authorized users only.');
         }
 
-        $tenants = User::with(['tenantProfile'])
-            ->where('organization_id', session('current_organization_id'))
-            ->where('role', 'tenant')
+        $leases = Lease::with(['unit.property', 'tenants'])
+            ->forOrganization(Auth::user()->organization_id)
             ->when($this->search, function ($query) {
-                $query->where(function ($q) {
-                    $q->where('name', 'like', '%' . $this->search . '%')
-                      ->orWhere('email', 'like', '%' . $this->search . '%')
-                      ->orWhere('phone', 'like', '%' . $this->search . '%');
+                $query->whereHas('unit.property', function ($q) {
+                    $q->where('name', 'like', '%' . $this->search . '%');
+                })->orWhereHas('unit', function ($q) {
+                    $q->where('unit_number', 'like', '%' . $this->search . '%');
+                })->orWhereHas('tenants', function ($q) {
+                    $q->where('name', 'like', '%' . $this->search . '%');
                 });
             })
             ->when($this->statusFilter, function ($query) {
-                if ($this->statusFilter === 'active') {
-                    $query->where('is_active', true);
-                } elseif ($this->statusFilter === 'inactive') {
-                    $query->where('is_active', false);
-                }
+                $query->where('status', $this->statusFilter);
             })
-            ->orderBy($this->sortField, $this->sortDirection)
-            ->paginate(15);
+            ->orderBy($this->sortBy, $this->sortDirection)
+            ->paginate(10);
 
-        return view('livewire.tenants.tenant-list', compact('tenants'));
+        return view('livewire.leases.lease-list', compact('leases'));
     }
 }

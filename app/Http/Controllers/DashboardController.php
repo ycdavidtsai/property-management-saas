@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\View\View;
+use Illuminate\Support\Facades\Auth;
+use App\Services\RoleService;
 
 class DashboardController extends Controller
 {
@@ -13,7 +15,10 @@ class DashboardController extends Controller
 
     public function index(): View
     {
-        return view('dashboard');
+        return view('dashboard', [
+            // Your existing data...
+            'showLeaseMetrics' => RoleService::canViewLeases(Auth::user()->role),
+        ]);
     }
 
     public function home(): View

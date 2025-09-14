@@ -4,6 +4,7 @@ namespace App\Livewire\Properties;
 
 use App\Models\Property;
 use Livewire\Component;
+use Illuminate\Support\Facades\Auth;
 
 class Dashboard extends Component
 {
@@ -13,6 +14,11 @@ class Dashboard extends Component
 
     public function mount()
     {
+        // Only for admin, manager, landlord users
+        if (!in_array(Auth::user()->role, ['admin', 'manager', 'landlord'])) {
+            abort(403, 'Access denied. This portal is for authorized users only.');
+        }
+
         $this->loadData();
     }
 
