@@ -39,12 +39,13 @@ class LeaseForm extends Component
         'status' => 'required|in:active,expiring_soon,expired,terminated',
     ];
 
-// LeaseForm.php - Update mount method
+    // Update the mount method in app/Livewire/Leases/LeaseForm.php
+
     public function mount($lease = null)
     {
         $organizationId = Auth::user()->organization_id;
 
-        // Load available units and tenants (same as before)
+        // Load available units (vacant or for_lease)
         $this->availableUnits = Unit::with('property')
             ->whereHas('property', function ($query) use ($organizationId) {
                 $query->where('organization_id', $organizationId);
@@ -52,6 +53,7 @@ class LeaseForm extends Component
             ->whereIn('status', ['vacant', 'for_lease'])
             ->get();
 
+        // Load available tenants (users with tenant role and no active lease)
         $this->availableTenants = User::where('organization_id', $organizationId)
             ->where('role', 'tenant')
             ->where('is_active', true)
@@ -65,12 +67,13 @@ class LeaseForm extends Component
             $this->lease = $lease->load('tenants');
             $this->isEditing = true;
             $this->loadLeaseData();
-
-            // Add current unit/tenants to available options for editing
+            
+            // For editing: add current unit to available units if not already there
             if (!$this->availableUnits->contains('id', $this->lease->unit_id)) {
                 $this->availableUnits->push($this->lease->unit);
             }
-
+            
+            // For editing: add current tenants to available tenants if not already there
             foreach ($this->lease->tenants as $tenant) {
                 if (!$this->availableTenants->contains('id', $tenant->id)) {
                     $this->availableTenants->push($tenant);
