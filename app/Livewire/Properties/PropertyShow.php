@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Livewire\Properties;
 
 use App\Models\Property;
@@ -7,59 +6,64 @@ use Livewire\Component;
 
 class PropertyShow extends Component
 {
-    public Property $property;
-    public $units;
-    public $metrics = [];
+    public $property;
+    public $showUnitDetails = [];
 
-    public function mount(Property $property)
+    public function mount($property = null)
     {
-        $this->property = $property;
-        $this->loadData();
-    }
-
-    public function loadData()
-    {
-        // Load units with eager loading
-        $this->units = $this->property->units()
-            ->orderBy('unit_number')
-            ->get();
-
-        $this->calculateMetrics();
-    }
-
-    protected function calculateMetrics()
-    {
-        $totalUnits = $this->units->count();
-        $occupiedUnits = $this->units->where('status', 'occupied')->count();
-        $vacantUnits = $this->units->where('status', 'vacant')->count();
-        $maintenanceUnits = $this->units->where('status', 'maintenance')->count();
-
-        $totalRent = $this->units->where('status', 'occupied')->sum('rent_amount');
-        $potentialRent = $this->units->sum('rent_amount');
-
-        $this->metrics = [
-            'totalUnits' => $totalUnits,
-            'occupiedUnits' => $occupiedUnits,
-            'vacantUnits' => $vacantUnits,
-            'maintenanceUnits' => $maintenanceUnits,
-            'currentRevenue' => $totalRent,
-            'potentialRevenue' => $potentialRent,
-            'occupancyRate' => $totalUnits > 0 ? round(($occupiedUnits / $totalUnits) * 100, 1) : 0,
-        ];
-    }
-
-    public function updateUnitStatus($unitId, $status)
-    {
-        $unit = $this->units->find($unitId);
-        if ($unit) {
-            $unit->update(['status' => $status]);
-            $this->loadData(); // Refresh data
-            session()->flash('message', 'Unit status updated successfully!');
+        if ($property) {
+            // Property passed from controller
+            $this->property = $property;
+            
+            // Load units with basic ordering
+            $this->property->load([
+                'units' => function ($query) {
+                    $query->orderBy('unit_number');
+                }
+            ]);
+        } else {
+            abort(404, 'Property not found');
         }
+    }
+
+    public function toggleUnitDetails($unitId)
+    {
+        $this->showUnitDetails[$unitId] = !($this->showUnitDetails[$unitId] ?? false);
     }
 
     public function render()
     {
-        return view('livewire.properties.property-show');
+        // Get occupancy summary
+        $occupancySummary = $this->property->occupancy_summary;
+        
+        // Get current tenants using the simplified method
+        $currentTenants = $this->property->currentTenants(); // This now returns a collection directly
+        
+        // Get units with their lease information
+        $unitsWithLeases = $this->getUnitsWithActiveLeases();
+
+        return view('livewire.properties.property-show', compact('occupancySummary', 'currentTenants', 'unitsWithLeases'));
+    }
+
+    /**
+     * Get units with their active lease information
+     */
+    private function getUnitsWithActiveLeases()
+    {
+        $units = $this->property->units;
+        
+        // Load active leases for each unit
+        foreach ($units as $unit) {
+            $activeLease = \App\Models\Lease::where('unit_id', $unit->id)
+                              ->where('status', 'active')
+                              ->with('tenants')
+                              ->first();
+            
+            // Add lease and tenants as properties to the unit
+            $unit->activeLease = $activeLease;
+            $unit->currentTenants = $activeLease ? $activeLease->tenants : collect();
+        }
+        
+        return $units;
     }
 }

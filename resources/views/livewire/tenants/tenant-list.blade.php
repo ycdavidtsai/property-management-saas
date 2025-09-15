@@ -1,178 +1,169 @@
-{{-- resources/views/livewire/tenants/tenant-list.blade.php --}}
 <div>
-    <!-- Page Header -->
-    <div class="mb-8">
-        <h1 class="text-lg font-bold text-gray-900">Tenant Management</h1>
-        <p class="text-gray-600">Manage your tenants and their information</p>
-    </div>
-
-    <!-- Search and Filters -->
-    <div class="bg-white rounded-lg shadow-sm border p-6 mb-6">
-        <div class="flex flex-col md:flex-row gap-4 items-center justify-between">
-            <div class="flex flex-col md:flex-row gap-4 flex-1">
-                <div class="flex-1">
-                    <input type="text"
-                           wire:model.live.debounce.300ms="search"
-                           placeholder="Search tenants by name, email, or phone..."
-                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                </div>
-                <div>
-                    <select wire:model.live="statusFilter"
-                            class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                        <option value="">All Status</option>
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                    </select>
-                </div>
-            </div>
-            <div>
-                <a href="{{ route('tenants.create') }}"
-                   class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 inline-flex items-center transition-colors">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                    </svg>
+    <div class="sm:flex sm:items-center">
+        <div class="sm:flex-auto">
+            <h1 class="text-base font-semibold leading-6 text-gray-900">Tenants</h1>
+            <p class="mt-2 text-sm text-gray-700">Manage tenant information and track their property assignments.</p>
+        </div>
+        <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
+            @if(App\Services\RoleService::roleHasPermission(auth()->user()->role, 'tenants.create'))
+                <a href="{{ route('tenants.create') }}" 
+                   class="block rounded-md bg-indigo-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">
                     Add Tenant
                 </a>
-            </div>
+            @endif
         </div>
     </div>
 
-    <!-- Tenants Table -->
-    <div class="bg-white rounded-lg shadow-sm border overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full">
-                <thead class="bg-gray-50 border-b">
-                    <tr>
+    <!-- Enhanced Filters -->
+    <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-4">
+        <div>
+            <input type="text" 
+                   wire:model.live="search" 
+                   placeholder="Search tenants..."
+                   class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+        </div>
+        <div>
+            <select wire:model.live="statusFilter" 
+                    class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                <option value="">All Statuses</option>
+                <option value="active">Active Tenants</option>
+                <option value="inactive">Inactive Tenants</option>
+                <option value="active_lease">With Active Lease</option>
+                <option value="no_lease">No Active Lease</option>
+            </select>
+        </div>
+        <div>
+            <select wire:model.live="propertyFilter" 
+                    class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                <option value="">All Properties</option>
+                @foreach($properties as $property)
+                    <option value="{{ $property->id }}">{{ $property->name }}</option>
+                @endforeach
+            </select>
+        </div>
+    </div>
 
-                        <!-- Existing columns -->
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            <button wire:click="sortBy('name')" class="flex items-center space-x-1 hover:text-gray-700 group">
-                                <span>Tenant</span>
-                                @if($sortField === 'name')
-                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                        <path d="{{ $sortDirection === 'asc' ? 'M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' : 'M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z' }}"/>
-                                    </svg>
-                                @else
-                                    <svg class="w-4 h-4 opacity-0 group-hover:opacity-50" fill="currentColor" viewBox="0 0 20 20">
-                                        <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/>
-                                    </svg>
+    <!-- Enhanced Tenants Table -->
+    <div class="mt-8 flow-root">
+        <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+            <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+                <table class="min-w-full divide-y divide-gray-300">
+                    <thead>
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide cursor-pointer" 
+                                wire:click="sortBy('name')">
+                                Tenant
+                                @if($sortBy === 'name')
+                                    <span class="ml-1">{{ $sortDirection === 'asc' ? '↑' : '↓' }}</span>
                                 @endif
-                            </button>
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employment</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            <button wire:click="sortBy('created_at')" class="flex items-center space-x-1 hover:text-gray-700 group">
-                                <span>Joined</span>
-                            </button>
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    @forelse($tenants as $tenant)
-                        <tr class="hover:bg-gray-50 transition-colors">
-
-                            <!-- Rest of your existing table columns remain the same -->
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="flex items-center">
-                                    <div class="flex-shrink-0 h-10 w-10">
-                                        <div class="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
-                                            @if($tenant->profile_photo_path)
-                                                <img class="h-10 w-10 rounded-full object-cover"
-                                                     src="{{ Storage::url($tenant->profile_photo_path) }}"
-                                                     alt="{{ $tenant->name }}">
-                                            @else
-                                                <span class="text-gray-600 font-medium">
-                                                    {{ substr($tenant->name, 0, 1) }}{{ substr(explode(' ', $tenant->name)[1] ?? '', 0, 1) }}
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                Current Property
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                Unit
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                Lease Status
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                Status
+                            </th>
+                            <th class="relative px-6 py-3"><span class="sr-only">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        @forelse($tenants as $tenant)
+                            @php
+                                $currentProperty = $tenant->currentProperty();
+                                $currentUnit = $tenant->currentUnit();
+                                $activeLease = $tenant->activeLease();
+                            @endphp
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="h-10 w-10 flex-shrink-0">
+                                            <div class="h-10 w-10 rounded-full bg-indigo-500 flex items-center justify-center">
+                                                <span class="text-sm font-medium text-white">
+                                                    {{ strtoupper(substr($tenant->name, 0, 2)) }}
                                                 </span>
-                                            @endif
+                                            </div>
+                                        </div>
+                                        <div class="ml-4">
+                                            <div class="text-sm font-medium text-gray-900">{{ $tenant->name }}</div>
+                                            <div class="text-sm text-gray-500">{{ $tenant->email }}</div>
                                         </div>
                                     </div>
-                                    <div class="ml-4">
-                                        <div class="text-sm font-medium text-gray-900">{{ $tenant->name }}</div>
-                                        <div class="text-sm text-gray-500">Tenant ID: {{ $tenant->id }}</div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm text-gray-900">{{ $tenant->email }}</div>
-                                @if($tenant->phone)
-                                    <div class="text-sm text-gray-500">{{ $tenant->phone }}</div>
-                                @else
-                                    <div class="text-sm text-gray-400 italic">No phone</div>
-                                @endif
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                @if($tenant->tenantProfile && $tenant->tenantProfile->employment_status)
-                                    <div class="text-sm text-gray-900">{{ ucfirst(str_replace('_', ' ', $tenant->tenantProfile->employment_status)) }}</div>
-                                    @if($tenant->tenantProfile->monthly_income)
-                                        <div class="text-sm text-gray-500">${{ number_format($tenant->tenantProfile->monthly_income, 0) }}/month</div>
-                                    @endif
-                                @else
-                                    <span class="text-sm text-gray-500 italic">No employment info</span>
-                                @endif
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                @if($tenant->is_active)
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                                        Active
-                                    </span>
-                                @else
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
-                                        Inactive
-                                    </span>
-                                @endif
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {{ $tenant->created_at->format('M j, Y') }}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <div class="flex space-x-2">
-                                    <a href="{{ route('tenants.show', $tenant) }}"
-                                       class="text-blue-600 hover:text-blue-900 transition-colors">View</a>
-                                    <a href="{{ route('tenants.edit', $tenant) }}"
-                                       class="text-indigo-600 hover:text-indigo-900 transition-colors">Edit</a>
-                                </div>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="7" class="px-6 py-12 text-center text-gray-500">
-                                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
-                                </svg>
-                                <h3 class="mt-2 text-sm font-medium text-gray-900">No tenants found</h3>
-                                <p class="mt-1 text-sm text-gray-500">
-                                    @if($search || $statusFilter)
-                                        Try adjusting your search or filter criteria.
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    @if($currentProperty)
+                                        <div class="text-sm font-medium text-gray-900">
+                                            <a href="{{ route('properties.show', $currentProperty->id) }}" 
+                                               class="text-indigo-600 hover:text-indigo-900">
+                                                {{ $currentProperty->name }}
+                                            </a>
+                                        </div>
+                                        <div class="text-sm text-gray-500">{{ $currentProperty->address }}</div>
                                     @else
-                                        Get started by adding your first tenant.
+                                        <span class="text-sm text-gray-400">No current property</span>
                                     @endif
-                                </p>
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Pagination -->
-        @if($tenants->hasPages())
-            <div class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
-                {{ $tenants->links() }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    @if($currentUnit)
+                                        <div class="text-sm font-medium text-gray-900">Unit {{ $currentUnit->unit_number }}</div>
+                                        <div class="text-sm text-gray-500">
+                                            {{ $currentUnit->bedrooms }}BR / {{ $currentUnit->bathrooms }}BA
+                                        </div>
+                                    @else
+                                        <span class="text-sm text-gray-400">No unit assigned</span>
+                                    @endif
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    @if($activeLease)
+                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
+                                            {{ $activeLease->status === 'active' ? 'bg-green-100 text-green-800' : '' }}
+                                            {{ $activeLease->status === 'expiring_soon' ? 'bg-yellow-100 text-yellow-800' : '' }}
+                                            {{ $activeLease->status === 'expired' ? 'bg-red-100 text-red-800' : '' }}">
+                                            {{ ucfirst(str_replace('_', ' ', $activeLease->status)) }}
+                                        </span>
+                                        <div class="text-xs text-gray-500 mt-1">
+                                            Ends {{ $activeLease->end_date->format('M j, Y') }}
+                                        </div>
+                                    @else
+                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                                            No Active Lease
+                                        </span>
+                                    @endif
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ $tenant->is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                                        {{ $tenant->is_active ? 'Active' : 'Inactive' }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="{{ route('tenants.show', $tenant->id) }}" 
+                                       class="text-indigo-600 hover:text-indigo-900 mr-4">View</a>
+                                    @if(App\Services\RoleService::roleHasPermission(auth()->user()->role, 'tenants.edit'))
+                                        <a href="{{ route('tenants.edit', $tenant->id) }}" 
+                                           class="text-indigo-600 hover:text-indigo-900">Edit</a>
+                                    @endif
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">
+                                    No tenants found.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
             </div>
-        @endif
+        </div>
     </div>
 
-    <!-- Loading State -->
-    <div wire:loading class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div class="mt-3 text-center">
-                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <h3 class="text-lg font-medium text-gray-900 mt-2">Loading...</h3>
-            </div>
-        </div>
+    <!-- Pagination -->
+    <div class="mt-6">
+        {{ $tenants->links() }}
     </div>
 </div>

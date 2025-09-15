@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Property;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\Auth;
 
 class PropertyController extends Controller
 {
@@ -23,12 +24,27 @@ class PropertyController extends Controller
         return view('properties.create');
     }
 
-    public function show(Property $property): View
+    /**
+     * Display the specified property
+     */
+    public function show($propertyId)
     {
-        // Ensure the property belongs to the current organization
-        if ($property->organization_id !== session('current_organization_id')) {
-            abort(403);
-        }
+        // Check permission (assuming you have this)
+        // if (!RoleService::canViewProperties(auth()->user()->role)) {
+        //     abort(403, 'You do not have permission to view properties.');
+        // }
+
+        // Load property with all necessary relationships for the enhanced view
+        $property = Property::with([
+            'units' => function ($query) {
+                $query->orderBy('unit_number');
+            },
+            //'units.activeLease.tenants'
+            //'units.lease.tenants'
+            // Custom methods (like activeLease) or missing relationships cannot be eager loaded.
+        ])
+        ->where('organization_id', Auth::user()->organization_id)
+        ->findOrFail($propertyId);
 
         return view('properties.show', compact('property'));
     }

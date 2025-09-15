@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Unit extends Model
 {
@@ -36,8 +37,44 @@ class Unit extends Model
         return $this->status === 'vacant';
     }
 
+    /**
+     * All leases for this unit
+     */
+    public function leases(): HasMany
+    {
+        return $this->hasMany(Lease::class);
+    }
+
+    /**
+     * Get the currently active lease for this unit
+     */
+    public function activeLease()
+    {
+        return $this->leases()->where('status', 'active')->first();
+    }
+
+    /**
+     * Get current tenants through the active lease
+     */
+    public function currentTenants()
+    {
+        $activeLease = $this->activeLease();
+        return $activeLease ? $activeLease->tenants : collect();
+    }
+
+    /**
+     * Check if unit is currently occupied (has active lease)
+     */
     public function isOccupied(): bool
     {
-        return $this->status === 'occupied';
+        return $this->activeLease() !== null;
+    }
+
+    /**
+     * Get tenant names as a string for display
+     */
+    public function getTenantNamesAttribute(): string
+    {
+        return $this->currentTenants()->pluck('name')->join(', ');
     }
 }

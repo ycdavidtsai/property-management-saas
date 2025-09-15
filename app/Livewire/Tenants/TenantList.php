@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Livewire\Tenants;
 
 use App\Models\User;
@@ -9,17 +8,18 @@ use Illuminate\Support\Facades\Auth;
 
 class TenantList extends Component
 {
-
     use WithPagination;
 
     public $search = '';
     public $statusFilter = '';
-    public $sortField = 'name';
+    public $propertyFilter = '';
+    public $sortBy = 'name';
     public $sortDirection = 'asc';
 
     protected $queryString = [
         'search' => ['except' => ''],
         'statusFilter' => ['except' => ''],
+        'propertyFilter' => ['except' => ''],
     ];
 
     public function updatingSearch()
@@ -32,26 +32,25 @@ class TenantList extends Component
         $this->resetPage();
     }
 
+    public function updatingPropertyFilter()
+    {
+        $this->resetPage();
+    }
+
     public function sortBy($field)
     {
-        if ($this->sortField === $field) {
+        if ($this->sortBy === $field) {
             $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
         } else {
             $this->sortDirection = 'asc';
         }
-
-        $this->sortField = $field;
+        $this->sortBy = $field;
     }
 
     public function render()
     {
-        // Only for admin, manager, landlord users
-        if (!in_array(Auth::user()->role, ['admin', 'manager', 'landlord'])) {
-            abort(403, 'Access denied. This portal is for authorized users only.');
-        }
-
-        $tenants = User::with(['tenantProfile'])
-            ->where('organization_id', session('current_organization_id'))
+        $tenants = User::with(['leases.unit.property', 'tenantProfile'])
+            ->where('organization_id', Auth::user()->organization_id)
             ->where('role', 'tenant')
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
@@ -61,15 +60,32 @@ class TenantList extends Component
                 });
             })
             ->when($this->statusFilter, function ($query) {
-                if ($this->statusFilter === 'active') {
-                    $query->where('is_active', true);
-                } elseif ($this->statusFilter === 'inactive') {
-                    $query->where('is_active', false);
+                if ($this->statusFilter === 'active_lease') {
+                    $query->whereHas('leases', function ($q) {
+                        $q->where('status', 'active');
+                    });
+                } elseif ($this->statusFilter === 'no_lease') {
+                    $query->whereDoesntHave('leases', function ($q) {
+                        $q->where('status', 'active');
+                    });
+                } else {
+                    $query->where('is_active', $this->statusFilter === 'active');
                 }
             })
-            ->orderBy($this->sortField, $this->sortDirection)
-            ->paginate(15);
+            ->when($this->propertyFilter, function ($query) {
+                $query->whereHas('leases.unit.property', function ($q) {
+                    $q->where('id', $this->propertyFilter)
+                      ->where('leases.status', 'active');
+                });
+            })
+            ->orderBy($this->sortBy, $this->sortDirection)
+            ->paginate(10);
 
-        return view('livewire.tenants.tenant-list', compact('tenants'));
+        // Get properties for filter dropdown
+        $properties = \App\Models\Property::where('organization_id', auth()->user()->organization_id)
+            ->orderBy('name')
+            ->get();
+
+        return view('livewire.tenants.tenant-list', compact('tenants', 'properties'));
     }
 }

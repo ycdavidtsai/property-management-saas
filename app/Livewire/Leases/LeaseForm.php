@@ -43,8 +43,11 @@ class LeaseForm extends Component
 
     public function mount($lease = null)
     {
-        $organizationId = Auth::user()->organization_id;
+        $organizationId = AUTH::user()->organization_id;
 
+        // Check if unit is pre-selected from URL parameter
+        $preselectedUnitId = request()->query('unit');
+        
         // Load available units (vacant or for_lease)
         $this->availableUnits = Unit::with('property')
             ->whereHas('property', function ($query) use ($organizationId) {
@@ -61,6 +64,12 @@ class LeaseForm extends Component
                 $query->where('status', 'active');
             })
             ->get();
+
+        // Pre-select unit if specified in URL
+        if ($preselectedUnitId && $this->availableUnits->contains('id', $preselectedUnitId)) {
+            $this->unit_id = $preselectedUnitId;
+            $this->updatedUnitId(); // Trigger rent amount update
+        }
 
         if ($lease) {
             // Editing mode - lease passed from controller
