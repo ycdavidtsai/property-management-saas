@@ -2,6 +2,7 @@
 namespace App\Livewire\Tenants;
 
 use App\Models\User;
+use App\Models\Property;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Illuminate\Support\Facades\Auth;
@@ -13,6 +14,7 @@ class TenantList extends Component
     public $search = '';
     public $statusFilter = '';
     public $propertyFilter = '';
+    public $leaseStatusFilter = '';
     public $sortBy = 'name';
     public $sortDirection = 'asc';
 
@@ -20,6 +22,7 @@ class TenantList extends Component
         'search' => ['except' => ''],
         'statusFilter' => ['except' => ''],
         'propertyFilter' => ['except' => ''],
+        'leaseStatusFilter' => ['except' => ''],
     ];
 
     public function updatingSearch()
@@ -37,6 +40,11 @@ class TenantList extends Component
         $this->resetPage();
     }
 
+    public function updatingLeaseStatusFilter()
+    {
+        $this->resetPage();
+    }
+
     public function sortBy($field)
     {
         if ($this->sortBy === $field) {
@@ -49,43 +57,94 @@ class TenantList extends Component
 
     public function render()
     {
-        $tenants = User::with(['leases.unit.property', 'tenantProfile'])
-            ->where('organization_id', Auth::user()->organization_id)
-            ->where('role', 'tenant')
-            ->when($this->search, function ($query) {
-                $query->where(function ($q) {
-                    $q->where('name', 'like', '%' . $this->search . '%')
-                      ->orWhere('email', 'like', '%' . $this->search . '%')
-                      ->orWhere('phone', 'like', '%' . $this->search . '%');
+        $organizationId = Auth::user()->organization_id;
+
+        // Load tenants with their lease and property information
+        $tenants = User::with([
+            'leases' => function ($query) {
+                $query->where('status', 'active')->with(['unit.property']);
+            },
+            'tenantProfile'
+        ])
+        ->where('organization_id', $organizationId)
+        ->where('role', 'tenant')
+        ->when($this->search, function ($query) {
+            $query->where(function ($q) {
+                $q->where('name', 'like', '%' . $this->search . '%')
+                  ->orWhere('email', 'like', '%' . $this->search . '%')
+                  ->orWhere('phone', 'like', '%' . $this->search . '%');
+            });
+        })
+        ->when($this->statusFilter, function ($query) {
+            if ($this->statusFilter === 'active') {
+                $query->where('is_active', true);
+            } elseif ($this->statusFilter === 'inactive') {
+                $query->where('is_active', false);
+            }
+        })
+        ->when($this->leaseStatusFilter, function ($query) {
+            if ($this->leaseStatusFilter === 'has_lease') {
+                $query->whereHas('leases', function ($q) {
+                    $q->where('status', 'active');
                 });
-            })
-            ->when($this->statusFilter, function ($query) {
-                if ($this->statusFilter === 'active_lease') {
-                    $query->whereHas('leases', function ($q) {
-                        $q->where('status', 'active');
-                    });
-                } elseif ($this->statusFilter === 'no_lease') {
-                    $query->whereDoesntHave('leases', function ($q) {
-                        $q->where('status', 'active');
-                    });
-                } else {
-                    $query->where('is_active', $this->statusFilter === 'active');
-                }
-            })
-            ->when($this->propertyFilter, function ($query) {
-                $query->whereHas('leases.unit.property', function ($q) {
-                    $q->where('id', $this->propertyFilter)
-                      ->where('leases.status', 'active');
+            } elseif ($this->leaseStatusFilter === 'no_lease') {
+                $query->whereDoesntHave('leases', function ($q) {
+                    $q->where('status', 'active');
                 });
-            })
-            ->orderBy($this->sortBy, $this->sortDirection)
-            ->paginate(10);
+            } elseif (in_array($this->leaseStatusFilter, ['active', 'expiring_soon', 'expired'])) {
+                $query->whereHas('leases', function ($q) {
+                    $q->where('status', $this->leaseStatusFilter);
+                });
+            }
+        })
+        ->when($this->propertyFilter, function ($query) {
+            $query->whereHas('leases', function ($q) {
+                $q->where('status', 'active')
+                  ->whereHas('unit.property', function ($propertyQuery) {
+                      $propertyQuery->where('id', $this->propertyFilter);
+                  });
+            });
+        })
+        ->orderBy($this->sortBy, $this->sortDirection)
+        ->paginate(12);
 
         // Get properties for filter dropdown
-        $properties = \App\Models\Property::where('organization_id', auth()->user()->organization_id)
+        $properties = Property::where('organization_id', $organizationId)
             ->orderBy('name')
             ->get();
 
-        return view('livewire.tenants.tenant-list', compact('tenants', 'properties'));
+        // Get tenant statistics
+        $stats = $this->getTenantStatistics($organizationId);
+
+        return view('livewire.tenants.tenant-list', compact('tenants', 'properties', 'stats'));
+    }
+
+    private function getTenantStatistics($organizationId)
+    {
+        $totalTenants = User::where('organization_id', $organizationId)
+            ->where('role', 'tenant')
+            ->count();
+
+        $activeTenants = User::where('organization_id', $organizationId)
+            ->where('role', 'tenant')
+            ->where('is_active', true)
+            ->count();
+
+        $tenantsWithLeases = User::where('organization_id', $organizationId)
+            ->where('role', 'tenant')
+            ->whereHas('leases', function ($q) {
+                $q->where('status', 'active');
+            })
+            ->count();
+
+        $tenantsWithoutLeases = $activeTenants - $tenantsWithLeases;
+
+        return [
+            'total' => $totalTenants,
+            'active' => $activeTenants,
+            'with_leases' => $tenantsWithLeases,
+            'without_leases' => $tenantsWithoutLeases,
+            'housed_percentage' => $activeTenants > 0 ? round(($tenantsWithLeases / $activeTenants) * 100, 1) : 0
+        ];
     }
 }

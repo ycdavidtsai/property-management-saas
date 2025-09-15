@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Livewire\Tenants;
 
 use App\Models\User;
@@ -7,52 +6,46 @@ use Livewire\Component;
 
 class TenantShow extends Component
 {
-    public User $tenant;
-    public $showEditModal = false;
-    public $showDeleteModal = false;
+    public $tenant;
+    public $activeLease;
+    public $currentProperty;
+    public $currentUnit;
+    public $leaseHistory;
+    public $coTenants;
 
-    public function mount(User $tenant)
+    public function mount($tenant = null)
     {
-        // Ensure tenant belongs to current organization
-        if ($tenant->organization_id !== session('current_organization_id')) {
-            abort(404);
+        if ($tenant) {
+            // Tenant passed from controller
+            $this->tenant = $tenant;
+            $this->loadTenantData();
+        } else {
+            abort(404, 'Tenant not found');
         }
+    }
 
-        if ($tenant->role !== 'tenant') {
-            abort(404);
+    private function loadTenantData()
+    {
+        // Load tenant with relationships
+        $this->tenant->load(['tenantProfile', 'leases.unit.property', 'leases.tenants']);
+        
+        // Get active lease
+        $this->activeLease = $this->tenant->leases->where('status', 'active')->first();
+        
+        // Get current property and unit
+        if ($this->activeLease) {
+            $this->currentProperty = $this->activeLease->unit->property;
+            $this->currentUnit = $this->activeLease->unit;
+            
+            // Get co-tenants (other tenants on the same lease)
+            $this->coTenants = $this->activeLease->tenants->where('id', '!=', $this->tenant->id);
         }
-
-        $this->tenant = $tenant->load('tenantProfile');
-    }
-
-    public function toggleActiveStatus()
-    {
-        $this->tenant->update([
-            'is_active' => !$this->tenant->is_active
-        ]);
-
-        $status = $this->tenant->is_active ? 'activated' : 'deactivated';
-        session()->flash('message', "Tenant account has been {$status}.");
-    }
-
-    public function confirmDelete()
-    {
-        $this->showDeleteModal = true;
-    }
-
-    public function deleteTenant()
-    {
-        $tenantName = $this->tenant->name;
-
-        // Delete tenant profile first (due to foreign key)
-        $this->tenant->tenantProfile()?->delete();
-
-        // Delete tenant
-        $this->tenant->delete();
-
-        session()->flash('message', "Tenant '{$tenantName}' has been deleted.");
-
-        return redirect()->route('tenants.index');
+        
+        // Get lease history (all leases, ordered by date)
+        $this->leaseHistory = $this->tenant->leases()
+            ->with(['unit.property', 'tenants'])
+            ->orderBy('start_date', 'desc')
+            ->get();
     }
 
     public function render()
