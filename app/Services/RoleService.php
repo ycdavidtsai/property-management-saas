@@ -143,12 +143,14 @@ class RoleService
                 'maintenance.view',
                 'payments.view',
                 'leases.view', // Can view their own lease details only
+                'units.view', // Add if tenants should see their unit details
             ],
 
             'vendor' => [
                 // Very limited access
                 'maintenance.view',
                 'maintenance.edit', // Can update maintenance requests assigned to them
+                'units.view', // Add if vendors need unit access for maintenance
             ],
         ];
     }
@@ -233,4 +235,5 @@ class RoleService
     {
         return self::roleHasPermission($role, 'leases.view');
     }
+
 }

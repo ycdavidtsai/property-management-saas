@@ -5,6 +5,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PropertyController;
 use App\Http\Controllers\TenantController;
 use App\Http\Controllers\LeaseController;
+use App\Http\Controllers\UnitController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -50,7 +51,15 @@ Route::middleware(['auth', 'verified', 'organization'])->group(function () {
         Route::get('/create', [LeaseController::class, 'create'])->name('create');
         Route::get('/{lease}', [LeaseController::class, 'show'])->name('show');
         Route::get('/{lease}/edit', [LeaseController::class, 'edit'])->name('edit');
+
     });
+    
+    // Unit Management Routes (nested under properties for context)
+    Route::prefix('units')->name('units.')->group(function () {
+        Route::get('/{unit}', [UnitController::class, 'show'])->name('show');
+        Route::get('/{unit}/edit', [UnitController::class, 'edit'])->name('edit');
+    });
+    
 
 
     });

@@ -290,14 +290,26 @@
 
                             <!-- Unit Actions Footer -->
                             <div class="px-4 py-3 bg-gray-50 border-t border-gray-100 rounded-b-lg">
-                                <button wire:click="toggleUnitDetails({{ $unit->id }})" 
-                                        class="text-xs text-gray-600 hover:text-gray-900 flex items-center transition-colors">
-                                    <svg class="mr-1 h-3 w-3 transition-transform {{ isset($showUnitDetails[$unit->id]) && $showUnitDetails[$unit->id] ? 'rotate-180' : '' }}" 
-                                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                    </svg>
-                                    {{ isset($showUnitDetails[$unit->id]) && $showUnitDetails[$unit->id] ? 'Hide' : 'Show' }} Details
-                                </button>
+                                <div class="flex items-center justify-between">
+                                    <button wire:click="toggleUnitDetails('{{ $unit->id }}')" 
+                                            class="text-xs text-gray-600 hover:text-gray-900 flex items-center transition-colors">
+                                        <svg class="mr-1 h-3 w-3 transition-transform {{ isset($showUnitDetails[$unit->id]) && $showUnitDetails[$unit->id] ? 'rotate-180' : '' }}" 
+                                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                        </svg>
+                                        {{ isset($showUnitDetails[$unit->id]) && $showUnitDetails[$unit->id] ? 'Hide' : 'Show' }} Quick Info
+                                    </button>
+
+                                    @if(\App\Services\RoleService::roleHasPermission(auth()->user()->role, 'units.view'))
+                                        <a href="{{ route('units.show', $unit->id) }}" 
+                                        class="text-xs text-indigo-600 hover:text-indigo-900 font-medium flex items-center transition-colors">
+                                            View Details
+                                            <svg class="ml-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                            </svg>
+                                        </a>
+                                    @endif
+                                </div>
 
                                 @if(isset($showUnitDetails[$unit->id]) && $showUnitDetails[$unit->id])
                                     <div class="mt-3 pt-3 border-t border-gray-200 space-y-1 text-xs text-gray-600">
@@ -306,8 +318,24 @@
                                         @endif
                                         <p><span class="font-medium">Added:</span> {{ $unit->created_at->format('M j, Y') }}</p>
                                         @if($unit->description)
-                                            <p><span class="font-medium">Description:</span> {{ $unit->description }}</p>
+                                            <p><span class="font-medium">Description:</span> {{ Str::limit($unit->description, 80) }}</p>
                                         @endif
+                                        
+                                        <!-- Quick Actions -->
+                                        <div class="pt-2 flex space-x-3">
+                                            @if(\App\Services\RoleService::roleHasPermission(auth()->user()->role, 'units.edit'))
+                                                <a href="{{ route('units.edit', $unit->id) }}" 
+                                                class="text-indigo-600 hover:text-indigo-900 font-medium">
+                                                    Edit Unit
+                                                </a>
+                                            @endif
+                                            @if(!$unit->currentTenants->count() && \App\Services\RoleService::canCreateLeases(auth()->user()->role))
+                                                <a href="{{ route('leases.create') }}?unit={{ $unit->id }}" 
+                                                class="text-green-600 hover:text-green-900 font-medium">
+                                                    Create Lease
+                                                </a>
+                                            @endif
+                                        </div>
                                     </div>
                                 @endif
                             </div>
