@@ -53,7 +53,19 @@ class MaintenanceRequestForm extends Component
             'preferred_date' => 'nullable|date|after:today',
             'newPhotos.*' => 'nullable|image|max:5120', // 5MB max
         ];
+        // Additional validation for tenants - ensure they can only create requests for their units
+        if ($roleService->isTenant($user)) {
+            $tenantPropertyIds = $this->getTenantPropertyIds($user);
+            $tenantUnitIds = $this->getTenantUnitIds($user);
 
+            if ($tenantPropertyIds) {
+                $rules['property_id'] .= '|in:' . $tenantPropertyIds;
+            }
+
+            if ($this->unit_id && $tenantUnitIds) {
+                $rules['unit_id'] = 'nullable|exists:units,id|in:' . $tenantUnitIds;
+            }
+        }
         // Additional rules for management users
         if (!$roleService->isTenant($user) && $this->isEditing) {
             $rules['status'] = 'required|in:submitted,assigned,in_progress,completed,closed';
@@ -63,6 +75,27 @@ class MaintenanceRequestForm extends Component
         }
 
         return $rules;
+    }
+
+    private function getTenantPropertyIds($user)
+    {
+        return DB::table('lease_tenant')
+            ->join('leases', 'lease_tenant.lease_id', '=', 'leases.id')
+            ->join('units', 'leases.unit_id', '=', 'units.id')
+            ->where('lease_tenant.tenant_id', $user->id)
+            ->where('leases.status', 'active')
+            ->pluck('units.property_id')
+            ->implode(',');
+    }
+
+    private function getTenantUnitIds($user)
+    {
+        return DB::table('lease_tenant')
+            ->join('leases', 'lease_tenant.lease_id', '=', 'leases.id')
+            ->where('lease_tenant.tenant_id', $user->id)
+            ->where('leases.status', 'active')
+            ->pluck('leases.unit_id')
+            ->implode(',');
     }
 
     public function mount(?MaintenanceRequest $maintenanceRequest = null)
@@ -88,6 +121,26 @@ class MaintenanceRequestForm extends Component
         } else {
             // Check if user can create maintenance requests
             $this->authorize('create', MaintenanceRequest::class);
+
+            // Auto-populate for tenants
+            $user = Auth::user();
+            $roleService = app(RoleService::class);
+
+            if ($roleService->isTenant($user)) {
+                // Get tenant's current active lease info
+                $activeLease = DB::table('lease_tenant')
+                    ->join('leases', 'lease_tenant.lease_id', '=', 'leases.id')
+                    ->join('units', 'leases.unit_id', '=', 'units.id')
+                    ->where('lease_tenant.tenant_id', $user->id)
+                    ->where('leases.status', 'active')
+                    ->select('units.property_id', 'units.id as unit_id')
+                    ->first();
+
+                if ($activeLease) {
+                    $this->property_id = $activeLease->property_id;
+                    $this->unit_id = $activeLease->unit_id;
+                }
+            }
         }
     }
 
@@ -168,55 +221,67 @@ class MaintenanceRequestForm extends Component
     }
 
     public function render()
-    {
-        $user = Auth::user();
-        $roleService = app(RoleService::class);
+        {
+            $user = Auth::user();
+            $roleService = app(RoleService::class);
 
-        // Get properties based on user role
-        if ($roleService->isTenant($user)) {
-            // Get properties where this tenant has active leases
-            // Step 1: Get all active lease unit IDs for this tenant
-            $activeLeasesForTenant = DB::table('lease_tenant')
-                ->join('leases', 'lease_tenant.lease_id', '=', 'leases.id')
-                ->where('lease_tenant.tenant_id', $user->id)
-                ->where('leases.status', 'active')
-                ->pluck('leases.unit_id'); // Get the unit IDs from active leases
+            // Get properties based on user role
+            if ($roleService->isTenant($user)) {
+                // Get properties where this tenant has active leases
+                // Step 1: Get all active lease unit IDs for this tenant
+                $activeLeasesForTenant = DB::table('lease_tenant')
+                    ->join('leases', 'lease_tenant.lease_id', '=', 'leases.id')
+                    ->where('lease_tenant.tenant_id', $user->id)
+                    ->where('leases.status', 'active')
+                    ->pluck('leases.unit_id'); // Get the unit IDs from active leases
 
-            // Step 2: Get properties that have those units
-            $properties = Property::where('organization_id', $user->organization_id)
-                ->whereHas('units', function ($query) use ($activeLeasesForTenant) {
-                    $query->whereIn('id', $activeLeasesForTenant);
-                })
-                ->with(['units' => function ($query) use ($activeLeasesForTenant) {
-                    // Only load units where the tenant has active leases
-                    $query->whereIn('id', $activeLeasesForTenant);
-                }])
-                ->get();
-        } else {
-            $properties = Property::where('organization_id', $user->organization_id)
-                ->with('units')
-                ->get();
+                // Step 2: Get properties that have those units
+                $properties = Property::where('organization_id', $user->organization_id)
+                    ->whereHas('units', function ($query) use ($activeLeasesForTenant) {
+                        $query->whereIn('id', $activeLeasesForTenant);
+                    })
+                    ->with(['units' => function ($query) use ($activeLeasesForTenant) {
+                        // Only load units where the tenant has active leases
+                        $query->whereIn('id', $activeLeasesForTenant);
+                    }])
+                    ->get();
+            } else {
+                $properties = Property::where('organization_id', $user->organization_id)
+                    ->with('units')
+                    ->get();
+            }
+
+            // Get units for selected property (management users)
+            $units = collect();
+            if ($this->property_id && !$roleService->isTenant($user)) {
+                $units = Unit::where('property_id', $this->property_id)->get();
+            }
+
+            // Get selected property and unit for display (tenants)
+            $selectedProperty = null;
+            $selectedUnit = null;
+            if ($this->property_id) {
+                $selectedProperty = Property::find($this->property_id);
+            }
+            if ($this->unit_id) {
+                $selectedUnit = Unit::find($this->unit_id);
+            }
+
+            // Get vendors for management users
+            $vendors = collect();
+            if (!$roleService->isTenant($user)) {
+                $vendors = Vendor::where('organization_id', $user->organization_id)
+                    ->where('is_active', true)
+                    ->get();
+            }
+
+            return view('livewire.maintenance-requests.maintenance-request-form', [
+                'properties' => $properties,
+                'units' => $units,
+                'vendors' => $vendors,
+                'selectedProperty' => $selectedProperty,
+                'selectedUnit' => $selectedUnit,
+                'canManage' => !$roleService->isTenant($user),
+            ]);
         }
-
-        // Get units for selected property
-        $units = collect();
-        if ($this->property_id) {
-            $units = Unit::where('property_id', $this->property_id)->get();
-        }
-
-        // Get vendors for management users
-        $vendors = collect();
-        if (!$roleService->isTenant($user)) {
-            $vendors = Vendor::where('organization_id', $user->organization_id)
-                ->where('is_active', true)
-                ->get();
-        }
-
-        return view('livewire.maintenance-requests.maintenance-request-form', [
-            'properties' => $properties,
-            'units' => $units,
-            'vendors' => $vendors,
-            'canManage' => !$roleService->isTenant($user),
-        ]);
-    }
 }

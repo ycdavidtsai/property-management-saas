@@ -2,27 +2,53 @@
     <form wire:submit.prevent="save" class="space-y-6">
         <!-- Basic Information -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Property *</label>
-                <select wire:model="property_id" class="w-full border border-gray-300 rounded-md px-3 py-2">
-                    <option value="">Select Property</option>
-                    @foreach($properties as $property)
-                        <option value="{{ $property->id }}">{{ $property->name }}</option>
-                    @endforeach
-                </select>
-                @error('property_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
-            </div>
+            @if($canManage)
+                <!-- Management users can select property/unit -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Property *</label>
+                    <select wire:model.live="property_id" class="w-full border border-gray-300 rounded-md px-3 py-2">
+                        <option value="">Select Property</option>
+                        @foreach($properties as $property)
+                            <option value="{{ $property->id }}">{{ $property->name }}</option>
+                        @endforeach
+                    </select>
+                    @error('property_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                </div>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Unit</label>
-                <select wire:model="unit_id" class="w-full border border-gray-300 rounded-md px-3 py-2">
-                    <option value="">Select Unit (Optional)</option>
-                    @foreach($units as $unit)
-                        <option value="{{ $unit->id }}">Unit {{ $unit->unit_number }}</option>
-                    @endforeach
-                </select>
-                @error('unit_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
-            </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+                    <select wire:model.live="unit_id" class="w-full border border-gray-300 rounded-md px-3 py-2">
+                        <option value="">Select Unit (Optional)</option>
+                        @foreach($units as $unit)
+                            <option value="{{ $unit->id }}">Unit {{ $unit->unit_number }}</option>
+                        @endforeach
+                    </select>
+                    @error('unit_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                </div>
+            @else
+                <!-- Tenants see their property/unit as read-only -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Property</label>
+                    <div class="w-full border border-gray-200 bg-gray-50 rounded-md px-3 py-2 text-gray-700">
+                        @if($property_id && $selectedProperty)
+                            {{ $selectedProperty->name }}
+                        @else
+                            <span class="text-gray-500">No active lease found</span>
+                        @endif
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+                    <div class="w-full border border-gray-200 bg-gray-50 rounded-md px-3 py-2 text-gray-700">
+                        @if($unit_id && $selectedUnit)
+                            Unit {{ $selectedUnit->unit_number }}
+                        @else
+                            <span class="text-gray-500">No unit assigned</span>
+                        @endif
+                    </div>
+                </div>
+            @endif
         </div>
 
         <div>

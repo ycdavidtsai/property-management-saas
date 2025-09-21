@@ -70,7 +70,7 @@ class MaintenanceRequestIndex extends Component
 
         return view('livewire.maintenance-requests.maintenance-request-index', [
             'requests' => $requests,
-            'canCreate' => $roleService->isTenant($user) || $roleService->roleHasPermission($user->role, 'manage_properties'),
+            'canCreate' => $roleService->isTenant($user) || $roleService->roleHasPermission($user->role, 'maintenance.create'),
         ]);
     }
 }

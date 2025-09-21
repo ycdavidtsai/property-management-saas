@@ -126,6 +126,7 @@ class RoleService
 
                 // Maintenance
                 'maintenance.view',
+                'maintenance.create',
                 'maintenance.edit',
 
                 // Payments

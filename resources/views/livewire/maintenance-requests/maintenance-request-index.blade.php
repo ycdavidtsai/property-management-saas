@@ -4,13 +4,13 @@
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Search</label>
-                <input type="text" wire:model.debounce.300ms="search"
+                <input type="text" wire:model.live.debounce.300ms="search"
                        placeholder="Search requests..."
                        class="w-full border border-gray-300 rounded-md px-3 py-2">
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <select wire:model="statusFilter" class="w-full border border-gray-300 rounded-md px-3 py-2">
+                <select wire:model.live="statusFilter" class="w-full border border-gray-300 rounded-md px-3 py-2">
                     <option value="">All Statuses</option>
                     <option value="submitted">Submitted</option>
                     <option value="assigned">Assigned</option>
@@ -21,7 +21,7 @@
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Priority</label>
-                <select wire:model="priorityFilter" class="w-full border border-gray-300 rounded-md px-3 py-2">
+                <select wire:model.live="priorityFilter" class="w-full border border-gray-300 rounded-md px-3 py-2">
                     <option value="">All Priorities</option>
                     <option value="emergency">Emergency</option>
                     <option value="high">High</option>
