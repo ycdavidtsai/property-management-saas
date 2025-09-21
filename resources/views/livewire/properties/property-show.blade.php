@@ -24,7 +24,7 @@
                 </div>
                 <div class="mt-4 flex space-x-3 sm:mt-0">
                     @if(App\Services\RoleService::roleHasPermission(auth()->user()->role, 'properties.edit'))
-                        <a href="{{ route('properties.edit', $property->id) }}" 
+                        <a href="{{ route('properties.edit', $property->id) }}"
                            class="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
                             <svg class="-ml-0.5 mr-1.5 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
                                 <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
@@ -32,7 +32,7 @@
                             Edit Property
                         </a>
                     @endif
-                    <a href="{{ route('properties.index') }}" 
+                    <a href="{{ route('properties.index') }}"
                        class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">
                         <svg class="-ml-0.5 mr-1.5 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M7.793 2.232a.75.75 0 01-.025 1.06L3.622 7.25h10.003a5.375 5.375 0 010 10.75H10.75a.75.75 0 010-1.5h2.875a3.875 3.875 0 000-7.75H3.622l4.146 3.957a.75.75 0 01-1.036 1.085l-5.5-5.25a.75.75 0 010-1.085l5.5-5.25a.75.75 0 011.06.025z" clip-rule="evenodd" />
@@ -46,10 +46,10 @@
 
     <!-- Main Content -->
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-        
+
         <!-- Overview Cards -->
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-4 mb-8">
-            
+
             <!-- Occupancy Rate Card -->
             <div class="bg-white overflow-hidden shadow rounded-lg">
                 <div class="p-5">
@@ -71,7 +71,7 @@
                 </div>
                 <div class="bg-gray-50 px-5 py-3">
                     <div class="w-full bg-gray-200 rounded-full h-2">
-                        <div class="bg-green-600 h-2 rounded-full transition-all duration-300" 
+                        <div class="bg-green-600 h-2 rounded-full transition-all duration-300"
                              style="width: {{ $occupancySummary['occupancy_rate'] }}%"></div>
                     </div>
                 </div>
@@ -143,7 +143,7 @@
 
         <!-- Content Grid -->
         <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
-            
+
             <!-- Main Content - Units Grid -->
             <div class="lg:col-span-9">
                 <!-- Units Section Header -->
@@ -153,7 +153,7 @@
                         <p class="text-sm text-gray-500">Manage individual units and their tenant assignments</p>
                     </div>
                     @if(App\Services\RoleService::canCreateLeases(auth()->user()->role))
-                        <a href="{{ route('leases.create') }}" 
+                        <a href="{{ route('leases.create') }}"
                            class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">
                             <svg class="-ml-0.5 mr-1.5 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                 <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
@@ -171,7 +171,7 @@
                             {{ $unit->status === 'vacant' ? 'border-gray-200 hover:border-gray-300' : '' }}
                             {{ $unit->status === 'for_lease' ? 'border-blue-200 hover:border-blue-300' : '' }}
                             {{ $unit->status === 'maintenance' ? 'border-yellow-200 hover:border-yellow-300' : '' }}">
-                            
+
                             <!-- Unit Header -->
                             <div class="p-4 border-b border-gray-100">
                                 <div class="flex items-center justify-between">
@@ -184,7 +184,7 @@
                                         {{ ucfirst(str_replace('_', ' ', $unit->status)) }}
                                     </span>
                                 </div>
-                                
+
                                 <!-- Unit Specs -->
                                 <div class="mt-2 flex items-center space-x-4 text-sm text-gray-600">
                                     <span class="flex items-center">
@@ -217,13 +217,13 @@
                                                 Current Tenant{{ $unit->currentTenants->count() > 1 ? 's' : '' }}
                                             </h4>
                                             @if($unit->activeLease)
-                                                <a href="{{ route('leases.show', $unit->activeLease->id) }}" 
+                                                <a href="{{ route('leases.show', $unit->activeLease->id) }}"
                                                    class="text-xs text-indigo-600 hover:text-indigo-900 font-medium">
                                                     View Lease →
                                                 </a>
                                             @endif
                                         </div>
-                                        
+
                                         <div class="space-y-2">
                                             @foreach($unit->currentTenants as $tenant)
                                                 <div class="flex items-center p-2 bg-gray-50 rounded-lg group/tenant hover:bg-gray-100 transition-colors">
@@ -235,7 +235,7 @@
                                                         </div>
                                                     </div>
                                                     <div class="ml-3 flex-1 min-w-0">
-                                                        <a href="{{ route('tenants.show', $tenant->id) }}" 
+                                                        <a href="{{ route('tenants.show', $tenant->id) }}"
                                                            class="block">
                                                             <p class="text-sm font-medium text-gray-900 group-hover/tenant:text-indigo-600 transition-colors">
                                                                 {{ $tenant->name }}
@@ -276,7 +276,7 @@
                                         </svg>
                                         <p class="mt-2 text-sm text-gray-500">No current tenant</p>
                                         @if(App\Services\RoleService::canCreateLeases(auth()->user()->role))
-                                            <a href="{{ route('leases.create') }}?unit={{ $unit->id }}" 
+                                            <a href="{{ route('leases.create') }}?unit={{ $unit->id }}"
                                                class="mt-3 inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 transition-colors">
                                                 <svg class="-ml-0.5 mr-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
@@ -291,9 +291,9 @@
                             <!-- Unit Actions Footer -->
                             <div class="px-4 py-3 bg-gray-50 border-t border-gray-100 rounded-b-lg">
                                 <div class="flex items-center justify-between">
-                                    <button wire:click="toggleUnitDetails('{{ $unit->id }}')" 
+                                    <button wire:click="toggleUnitDetails('{{ $unit->id }}')"
                                             class="text-xs text-gray-600 hover:text-gray-900 flex items-center transition-colors">
-                                        <svg class="mr-1 h-3 w-3 transition-transform {{ isset($showUnitDetails[$unit->id]) && $showUnitDetails[$unit->id] ? 'rotate-180' : '' }}" 
+                                        <svg class="mr-1 h-3 w-3 transition-transform {{ isset($showUnitDetails[$unit->id]) && $showUnitDetails[$unit->id] ? 'rotate-180' : '' }}"
                                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                         </svg>
@@ -301,7 +301,7 @@
                                     </button>
 
                                     @if(\App\Services\RoleService::roleHasPermission(auth()->user()->role, 'units.view'))
-                                        <a href="{{ route('units.show', $unit->id) }}" 
+                                        <a href="{{ route('units.show', $unit->id) }}"
                                         class="text-xs text-indigo-600 hover:text-indigo-900 font-medium flex items-center transition-colors">
                                             View Details
                                             <svg class="ml-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -320,17 +320,17 @@
                                         @if($unit->description)
                                             <p><span class="font-medium">Description:</span> {{ Str::limit($unit->description, 80) }}</p>
                                         @endif
-                                        
+
                                         <!-- Quick Actions -->
                                         <div class="pt-2 flex space-x-3">
                                             @if(\App\Services\RoleService::roleHasPermission(auth()->user()->role, 'units.edit'))
-                                                <a href="{{ route('units.edit', $unit->id) }}" 
+                                                <a href="{{ route('units.edit', $unit->id) }}"
                                                 class="text-indigo-600 hover:text-indigo-900 font-medium">
                                                     Edit Unit
                                                 </a>
                                             @endif
                                             @if(!$unit->currentTenants->count() && \App\Services\RoleService::canCreateLeases(auth()->user()->role))
-                                                <a href="{{ route('leases.create') }}?unit={{ $unit->id }}" 
+                                                <a href="{{ route('leases.create') }}?unit={{ $unit->id }}"
                                                 class="text-green-600 hover:text-green-900 font-medium">
                                                     Create Lease
                                                 </a>
@@ -347,7 +347,7 @@
             <!-- Sidebar -->
             <div class="lg:col-span-3">
                 <div class="space-y-6">
-                    
+
                     <!-- Property Details Card -->
                     <div class="bg-white shadow rounded-lg">
                         <div class="px-4 py-5 sm:p-6">
@@ -384,6 +384,18 @@
                                 </h3>
                                 <div class="space-y-3">
                                     @foreach($currentTenants->take(8) as $tenant)
+                                        {{-- Get the unit for the current tenant --}}
+                                        @php
+                                            $unit = $unitsWithLeases->first(function($u) use ($tenant) {
+                                                return $u->currentTenants->contains('id', $tenant->id);
+                                            });
+                                        @endphp
+                                        @if($unit)
+                                            <span class="block text-xs text-gray-500">
+                                                Unit: {{ $unit->unit_number }}
+                                            </span>
+                                        @endif
+
                                         <div class="flex items-center">
                                             <div class="flex-shrink-0">
                                                 <div class="h-8 w-8 bg-indigo-600 rounded-full flex items-center justify-center">
@@ -393,12 +405,12 @@
                                                 </div>
                                             </div>
                                             <div class="ml-3 min-w-0 flex-1">
-                                                <a href="{{ route('tenants.show', $tenant->id) }}" 
+                                                <a href="{{ route('tenants.show', $tenant->id) }}"
                                                    class="text-sm font-medium text-gray-900 hover:text-indigo-600 transition-colors">
                                                     {{ $tenant->name }}
                                                 </a>
                                             </div>
-                                        </div>
+                                        </div><hr>
                                     @endforeach
                                     @if($currentTenants->count() > 8)
                                         <div class="pt-2 border-t border-gray-100">
@@ -418,14 +430,14 @@
                             <div class="px-4 py-5 sm:p-6">
                                 <h3 class="text-base font-semibold leading-6 text-gray-900 mb-4">Quick Actions</h3>
                                 <div class="space-y-3">
-                                    <a href="{{ route('leases.create') }}" 
+                                    <a href="{{ route('leases.create') }}"
                                        class="w-full flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 transition-colors">
                                         <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                                         </svg>
                                         Create New Lease
                                     </a>
-                                    <a href="{{ route('tenants.create') }}" 
+                                    <a href="{{ route('tenants.create') }}"
                                        class="w-full flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors">
                                         <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>

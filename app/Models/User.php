@@ -8,6 +8,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use App\Services\RoleService;
 
 class User extends Authenticatable
 {
@@ -84,11 +85,17 @@ class User extends Authenticatable
     }
 
     // Role checking methods
+    // public function isTenant(): bool
+    // {
+    //     return $this->role === 'tenant';
+    // }
+
     public function isTenant(): bool
     {
-        return $this->role === 'tenant';
+        // Delegate to RoleService instance
+        $roleService = new \App\Services\RoleService();
+        return $roleService->isTenant($this);
     }
-
     public function isLandlord(): bool
     {
         return in_array($this->role, ['admin', 'manager', 'landlord']);
@@ -145,15 +152,15 @@ class User extends Authenticatable
         return $this->activeLease() !== null;
     }
 
-    // public function maintenanceRequests()
-    // {
-    //     return $this->hasMany(MaintenanceRequest::class, 'tenant_id');
-    // }
+    public function maintenanceRequests()
+    {
+        return $this->hasMany(MaintenanceRequest::class, 'tenant_id');
+    }
 
-    // public function assignedMaintenanceRequests()
-    // {
-    //     return $this->hasMany(MaintenanceRequest::class, 'assigned_vendor_id');
-    // }
+    public function assignedMaintenanceRequests()
+    {
+        return $this->hasMany(MaintenanceRequest::class, 'assigned_vendor_id');
+    }
 
     // public function payments()
     // {
@@ -185,12 +192,15 @@ class User extends Authenticatable
     public function hasPermission(string $permission): bool
     {
         // Admin and manager have all permissions
-        if (in_array($this->role, ['admin', 'manager'])) {
-            return true;
-        }
+        // if (in_array($this->role, ['admin', 'manager'])) {
+        //     return true;
+        // }
 
-        $userPermissions = $this->permissions ?? [];
-        return in_array($permission, $userPermissions);
+        // $userPermissions = $this->permissions ?? [];
+        // return in_array($permission, $userPermissions);
+
+        // Use RoleService to check permission, suggested by co-poilot
+        return \App\Services\RoleService::roleHasPermission($this->role, $permission);
     }
 
     // Add these methods to your existing app/Models/User.php file
@@ -237,11 +247,11 @@ class User extends Authenticatable
     {
         $property = $this->currentProperty();
         $unit = $this->currentUnit();
-        
+
         if (!$property || !$unit) {
             return 'No current residence';
         }
-        
+
         return "{$property->address}, Unit {$unit->unit_number}";
     }
 

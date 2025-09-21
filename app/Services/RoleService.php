@@ -236,4 +236,11 @@ class RoleService
         return self::roleHasPermission($role, 'leases.view');
     }
 
+    // Checks if the given user has the 'tenant' role
+    public function isTenant($user)
+    {
+        // Adjust this logic based on how roles are stored in your User model
+        return $user->role === 'tenant';
+    }
+
 }
