@@ -47,6 +47,9 @@ class MaintenanceRequest extends Model
         'estimated_cost' => 'decimal:2',
         'actual_cost' => 'decimal:2',
         'tenant_rating' => 'integer',
+        'tenant_id' => 'integer', // Ensure tenant_id is cast to integer
+        'assigned_vendor_id' => 'integer', // Ensure assigned_vendor_id is cast to integer
+        'assigned_by' => 'integer', // Ensure assigned_by is cast to integer
     ];
 
     public function organization(): BelongsTo

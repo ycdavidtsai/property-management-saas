@@ -26,7 +26,9 @@ class MaintenanceRequestPolicy
 
         // Tenants can only see their own requests
         if ($this->roleService->isTenant($user)) {
-            return $user->id === $maintenanceRequest->tenant_id;
+            // Use loose comparison "==" not "===" due to database driver differences
+            // between local (SQLite) and production (MySQL)
+            return $user->id == $maintenanceRequest->tenant_id;
         }
 
         return true;

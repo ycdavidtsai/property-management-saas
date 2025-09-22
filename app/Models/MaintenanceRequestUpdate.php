@@ -25,6 +25,8 @@ class MaintenanceRequestUpdate extends Model
         'photos' => 'array',
         'metadata' => 'array',
         'is_internal' => 'boolean',
+        'user_id' => 'integer',
+        'maintenance_request_id' => 'string', // UUID
     ];
 
     public function maintenanceRequest(): BelongsTo

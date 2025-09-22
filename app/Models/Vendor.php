@@ -28,6 +28,7 @@ class Vendor extends Model
         'specialties' => 'array',
         'is_active' => 'boolean',
         'hourly_rate' => 'decimal:2',
+        'organization_id' => 'string', // UUIDs stay strings
     ];
 
     public function organization(): BelongsTo

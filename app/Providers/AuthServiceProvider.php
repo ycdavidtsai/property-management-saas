@@ -10,5 +10,6 @@ class AuthServiceProvider extends ServiceProvider
 {
     protected $policies = [
         MaintenanceRequest::class => MaintenanceRequestPolicy::class,
+        \App\Models\MaintenanceRequest::class => \App\Policies\MaintenanceRequestPolicy::class,
     ];
 }
