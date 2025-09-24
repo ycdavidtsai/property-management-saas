@@ -9,6 +9,7 @@ use App\Http\Controllers\UnitController;
 use App\Http\Controllers\MaintenanceRequestController;
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 
 
 
@@ -67,5 +68,28 @@ Route::middleware(['auth', 'organization'])->group(function () {
 });
 
     });
+// Add to web.php temporarily
+Route::get('/test-storage', function() {
+    try {
+        Storage::disk('public')->put('test-file.txt', 'test content');
+        return [
+            'storage_works' => true,
+            'file_exists' => Storage::disk('public')->exists('test-file.txt'),
+            'file_url' => asset('storage/test-file.txt'),
+            'full_path' => storage_path('app/public/test-file.txt'),
+            'directory_writable' => is_writable(storage_path('app/public')),
+        ];
+    } catch (\Exception $e) {
+        return [
+            'storage_works' => false,
+            'error' => $e->getMessage(),
+            'storage_path' => storage_path('app/public'),
+            'exists' => is_dir(storage_path('app/public')),
+            'writable' => is_writable(storage_path('app/public')),
+        ];
+    }
+})->middleware('auth');
+
+Route::get('/test-upload', \App\Livewire\TestUpload::class)->middleware('auth');
 
 require __DIR__.'/auth.php';

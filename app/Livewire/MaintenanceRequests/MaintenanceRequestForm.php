@@ -11,6 +11,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -53,6 +54,7 @@ class MaintenanceRequestForm extends Component
             'preferred_date' => 'nullable|date|after:today',
             'newPhotos.*' => 'nullable|image|max:5120', // 5MB max
         ];
+
         // Additional validation for tenants - ensure they can only create requests for their units
         if ($roleService->isTenant($user)) {
             $tenantPropertyIds = $this->getTenantPropertyIds($user);
@@ -66,6 +68,7 @@ class MaintenanceRequestForm extends Component
                 $rules['unit_id'] = 'nullable|exists:units,id|in:' . $tenantUnitIds;
             }
         }
+
         // Additional rules for management users
         if (!$roleService->isTenant($user) && $this->isEditing) {
             $rules['status'] = 'required|in:submitted,assigned,in_progress,completed,closed';
@@ -146,7 +149,13 @@ class MaintenanceRequestForm extends Component
 
     public function updatedPropertyId()
     {
-        $this->unit_id = '';
+        // Only reset unit_id for management users who can change properties
+        $user = Auth::user();
+        $roleService = app(RoleService::class);
+
+        if (!$roleService->isTenant($user)) {
+            $this->unit_id = '';
+        }
     }
 
     public function removePhoto($index)
@@ -157,6 +166,38 @@ class MaintenanceRequestForm extends Component
         }
     }
 
+    public function updatedNewPhotos()
+    {
+        // Debug logging for file upload validation
+        Log::info('File Upload Attempt:', [
+            'files_count' => count($this->newPhotos),
+            'files_details' => collect($this->newPhotos)->map(function($file) {
+                return [
+                    'name' => $file->getClientOriginalName(),
+                    'size' => $file->getSize(),
+                    'size_mb' => round($file->getSize() / 1024 / 1024, 2),
+                    'mime' => $file->getMimeType(),
+                    'extension' => $file->getClientOriginalExtension(),
+                ];
+            })->toArray()
+        ]);
+
+        try {
+            $this->validate([
+                'newPhotos.*' => 'nullable|image|max:5120', // 5MB max
+            ]);
+            Log::info('File validation passed');
+        } catch (\Exception $e) {
+            Log::error('File validation failed:', [
+                'error' => $e->getMessage(),
+                'validation_errors' => $e instanceof \Illuminate\Validation\ValidationException ? $e->errors() : null
+            ]);
+
+            // Re-throw to show user the error
+            throw $e;
+        }
+    }
+
     public function save()
     {
         $this->validate();
@@ -164,12 +205,44 @@ class MaintenanceRequestForm extends Component
         $user = Auth::user();
         $roleService = app(RoleService::class);
 
+        // Debug: Check what files we have before processing
+        Log::info('Save method - File debugging:', [
+            'newPhotos_count' => count($this->newPhotos),
+            'newPhotos_types' => collect($this->newPhotos)->map(fn($photo) => get_class($photo))->toArray(),
+            'existing_photos_count' => count($this->photos),
+        ]);
+
         // Handle photo uploads
         $uploadedPhotos = [];
         foreach ($this->newPhotos as $photo) {
-            $path = $photo->store('maintenance-photos', 'public');
-            $uploadedPhotos[] = $path;
+            try {
+                Log::info('Processing file:', [
+                    'name' => $photo->getClientOriginalName(),
+                    'size' => $photo->getSize(),
+                    'temp_path' => $photo->getPathname(),
+                ]);
+
+                $path = $photo->store('maintenance-photos', 'public');
+
+                Log::info('File stored successfully:', [
+                    'path' => $path,
+                    'full_path' => storage_path('app/public/' . $path),
+                    'file_exists' => file_exists(storage_path('app/public/' . $path)),
+                ]);
+
+                $uploadedPhotos[] = $path;
+            } catch (\Exception $e) {
+                Log::error('File upload failed:', [
+                    'error' => $e->getMessage(),
+                    'file' => $photo->getClientOriginalName(),
+                ]);
+            }
         }
+
+        Log::info('Upload summary:', [
+            'uploaded_photos' => $uploadedPhotos,
+            'total_uploaded' => count($uploadedPhotos),
+        ]);
 
         $allPhotos = array_merge($this->photos, $uploadedPhotos);
 
@@ -221,67 +294,67 @@ class MaintenanceRequestForm extends Component
     }
 
     public function render()
-        {
-            $user = Auth::user();
-            $roleService = app(RoleService::class);
+    {
+        $user = Auth::user();
+        $roleService = app(RoleService::class);
 
-            // Get properties based on user role
-            if ($roleService->isTenant($user)) {
-                // Get properties where this tenant has active leases
-                // Step 1: Get all active lease unit IDs for this tenant
-                $activeLeasesForTenant = DB::table('lease_tenant')
-                    ->join('leases', 'lease_tenant.lease_id', '=', 'leases.id')
-                    ->where('lease_tenant.tenant_id', $user->id)
-                    ->where('leases.status', 'active')
-                    ->pluck('leases.unit_id'); // Get the unit IDs from active leases
+        // Get properties based on user role
+        if ($roleService->isTenant($user)) {
+            // Get properties where this tenant has active leases
+            // Step 1: Get all active lease unit IDs for this tenant
+            $activeLeasesForTenant = DB::table('lease_tenant')
+                ->join('leases', 'lease_tenant.lease_id', '=', 'leases.id')
+                ->where('lease_tenant.tenant_id', $user->id)
+                ->where('leases.status', 'active')
+                ->pluck('leases.unit_id'); // Get the unit IDs from active leases
 
-                // Step 2: Get properties that have those units
-                $properties = Property::where('organization_id', $user->organization_id)
-                    ->whereHas('units', function ($query) use ($activeLeasesForTenant) {
-                        $query->whereIn('id', $activeLeasesForTenant);
-                    })
-                    ->with(['units' => function ($query) use ($activeLeasesForTenant) {
-                        // Only load units where the tenant has active leases
-                        $query->whereIn('id', $activeLeasesForTenant);
-                    }])
-                    ->get();
-            } else {
-                $properties = Property::where('organization_id', $user->organization_id)
-                    ->with('units')
-                    ->get();
-            }
-
-            // Get units for selected property (management users)
-            $units = collect();
-            if ($this->property_id && !$roleService->isTenant($user)) {
-                $units = Unit::where('property_id', $this->property_id)->get();
-            }
-
-            // Get selected property and unit for display (tenants)
-            $selectedProperty = null;
-            $selectedUnit = null;
-            if ($this->property_id) {
-                $selectedProperty = Property::find($this->property_id);
-            }
-            if ($this->unit_id) {
-                $selectedUnit = Unit::find($this->unit_id);
-            }
-
-            // Get vendors for management users
-            $vendors = collect();
-            if (!$roleService->isTenant($user)) {
-                $vendors = Vendor::where('organization_id', $user->organization_id)
-                    ->where('is_active', true)
-                    ->get();
-            }
-
-            return view('livewire.maintenance-requests.maintenance-request-form', [
-                'properties' => $properties,
-                'units' => $units,
-                'vendors' => $vendors,
-                'selectedProperty' => $selectedProperty,
-                'selectedUnit' => $selectedUnit,
-                'canManage' => !$roleService->isTenant($user),
-            ]);
+            // Step 2: Get properties that have those units
+            $properties = Property::where('organization_id', $user->organization_id)
+                ->whereHas('units', function ($query) use ($activeLeasesForTenant) {
+                    $query->whereIn('id', $activeLeasesForTenant);
+                })
+                ->with(['units' => function ($query) use ($activeLeasesForTenant) {
+                    // Only load units where the tenant has active leases
+                    $query->whereIn('id', $activeLeasesForTenant);
+                }])
+                ->get();
+        } else {
+            $properties = Property::where('organization_id', $user->organization_id)
+                ->with('units')
+                ->get();
         }
+
+        // Get units for selected property (management users)
+        $units = collect();
+        if ($this->property_id && !$roleService->isTenant($user)) {
+            $units = Unit::where('property_id', $this->property_id)->get();
+        }
+
+        // Get selected property and unit for display (tenants)
+        $selectedProperty = null;
+        $selectedUnit = null;
+        if ($this->property_id) {
+            $selectedProperty = Property::find($this->property_id);
+        }
+        if ($this->unit_id) {
+            $selectedUnit = Unit::find($this->unit_id);
+        }
+
+        // Get vendors for management users
+        $vendors = collect();
+        if (!$roleService->isTenant($user)) {
+            $vendors = Vendor::where('organization_id', $user->organization_id)
+                ->where('is_active', true)
+                ->get();
+        }
+
+        return view('livewire.maintenance-requests.maintenance-request-form', [
+            'properties' => $properties,
+            'units' => $units,
+            'vendors' => $vendors,
+            'selectedProperty' => $selectedProperty,
+            'selectedUnit' => $selectedUnit,
+            'canManage' => !$roleService->isTenant($user),
+        ]);
+    }
 }

@@ -6,13 +6,14 @@ use App\Models\MaintenanceRequest;
 use App\Models\MaintenanceRequestUpdate;
 use App\Models\Vendor;
 use App\Services\RoleService;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
 class MaintenanceRequestShow extends Component
 {
-    use WithFileUploads;
+    use WithFileUploads, AuthorizesRequests;
 
     public MaintenanceRequest $maintenanceRequest;
     public $newUpdate = '';
