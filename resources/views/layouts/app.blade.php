@@ -23,11 +23,11 @@
         </div>
 
         @livewireScripts
-        
+
         {{-- Flash Messages --}}
         @if (session('message'))
-            <div x-data="{ show: true }" 
-                 x-show="show" 
+            <div x-data="{ show: true }"
+                 x-show="show"
                  x-transition
                  x-init="setTimeout(() => show = false, 4000)"
                  class="fixed top-4 right-4 z-50 max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto">
@@ -58,8 +58,8 @@
         @endif
 
         @if (session('error'))
-            <div x-data="{ show: true }" 
-                 x-show="show" 
+            <div x-data="{ show: true }"
+                 x-show="show"
                  x-transition
                  x-init="setTimeout(() => show = false, 4000)"
                  class="fixed top-4 right-4 z-50 max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto">

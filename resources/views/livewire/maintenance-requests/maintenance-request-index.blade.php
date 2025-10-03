@@ -1,20 +1,13 @@
 <div>
     <!-- Search and Filters -->
     <div class="bg-white shadow rounded-lg p-6 mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-5">
-
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Property</label>
-                    <select wire:model.live="propertyFilter" class="w-full border border-gray-300 rounded-md px-3 py-2">
-                        <option value="">All Properties</option>
-                        @foreach($properties as $property)
-                            <option value="{{ $property->id }}">{{ $property->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-           
-
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                <input type="text" wire:model.live.debounce.300ms="search"
+                       placeholder="Search requests..."
+                       class="w-full border border-gray-300 rounded-md px-3 py-2">
+            </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
                 <select wire:model.live="statusFilter" class="w-full border border-gray-300 rounded-md px-3 py-2">
@@ -35,12 +28,6 @@
                     <option value="normal">Normal</option>
                     <option value="low">Low</option>
                 </select>
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Search</label>
-                <input type="text" wire:model.live.debounce.300ms="search"
-                       placeholder="Search requests..."
-                       class="w-full border border-gray-300 rounded-md px-3 py-2">
             </div>
             <div class="flex items-end">
                 @if($canCreate)

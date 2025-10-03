@@ -35,6 +35,16 @@ class MaintenanceRequestShow extends Component
         'statusNotes' => 'nullable|string',
     ];
 
+    protected $messages = [
+        'newUpdate.required' => 'Please enter a message for your update.',
+        'newUpdate.min' => 'Your update message must be at least 3 characters.',
+        'updatePhotos.*.image' => 'All uploaded files must be images (JPG, PNG, GIF, etc.)',
+        'updatePhotos.*.max' => 'Each image must not exceed 5MB. Please compress or resize your images.',
+        'selectedVendorId.required' => 'Please select a vendor to assign.',
+        'selectedVendorId.exists' => 'The selected vendor is invalid.',
+        'newStatus.required' => 'Please select a new status.',
+    ];
+
     public function mount(MaintenanceRequest $maintenanceRequest)
     {
         $this->authorize('view', $maintenanceRequest);

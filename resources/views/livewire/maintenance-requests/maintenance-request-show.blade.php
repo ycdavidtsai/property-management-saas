@@ -112,25 +112,79 @@
                     <textarea wire:model="newUpdate" rows="3"
                               placeholder="Add an update or comment..."
                               class="w-full border border-gray-300 rounded-md px-3 py-2"></textarea>
-                    @error('newUpdate') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                    @error('newUpdate')
+                        <div class="bg-red-50 border border-red-200 rounded-md p-2 text-red-800 text-sm mt-2">
+                            {{ $message }}
+                        </div>
+                    @enderror
                 </div>
 
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-4">
-                        <input type="file" wire:model="updatePhotos" multiple accept="image/*"
+                <div class="flex items-start justify-between gap-4">
+                    <div class="flex-1">
+                        <input type="file"
+                               wire:model="updatePhotos"
+                               multiple
+                               accept="image/*"
+                               id="update-photo-upload"
                                class="text-sm">
+
+                        <!-- Client-side error message -->
+                        <div id="update-file-size-error" class="hidden bg-red-50 border border-red-200 rounded-md p-2 text-red-800 text-xs mt-2">
+                            <div class="flex items-start">
+                                <svg class="h-4 w-4 text-red-400 mr-1 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                                </svg>
+                                <div id="update-file-size-error-message" class="flex-1"></div>
+                            </div>
+                        </div>
+
+                        <!-- Upload Progress -->
+                        <div wire:loading wire:target="updatePhotos" class="flex items-center text-blue-600 text-sm mt-1">
+                            <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Uploading photos...
+                        </div>
+
+                        <!-- Upload Success -->
+                        @if(count($updatePhotos) > 0)
+                            <div wire:loading.remove wire:target="updatePhotos" id="update-success-message" class="flex items-center text-green-600 text-sm mt-1">
+                                <svg class="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                {{ count($updatePhotos) }} photo(s) ready
+                            </div>
+                        @endif
+
                         @if($canManage)
-                            <label class="flex items-center">
+                            <label class="flex items-center mt-2">
                                 <input type="checkbox" wire:model="isInternal" class="mr-2">
                                 <span class="text-sm text-gray-600">Internal note (not visible to tenant)</span>
                             </label>
                         @endif
                     </div>
+
                     <button type="submit"
-                            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                        Add Update
+                            id="add-update-button"
+                            wire:loading.attr="disabled"
+                            wire:target="updatePhotos,addUpdate"
+                            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
+                        <span wire:loading.remove wire:target="updatePhotos,addUpdate">Add Update</span>
+                        <span wire:loading wire:target="updatePhotos" class="flex items-center">
+                            <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Processing...
+                        </span>
+                        <span wire:loading wire:target="addUpdate">Saving...</span>
                     </button>
                 </div>
+
+                <p class="text-xs text-gray-500 mt-2">
+                    Maximum file size: 4MB per image
+                </p>
             </form>
         </div>
 
@@ -249,3 +303,211 @@
         </div>
     @endif
 </div>
+
+{{-- <!-- Inline Script - No @push/@stack needed --> --}}
+<script>
+(function() {
+    'use strict';
+
+    const MAX_FILE_SIZE_MB = 5;
+    const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+    const MAX_TOTAL_SIZE_MB = 30; // Total upload limit
+    const MAX_TOTAL_SIZE_BYTES = MAX_TOTAL_SIZE_MB * 1024 * 1024;
+
+    //console.log('🔍 Update photo validation script loaded');
+    //console.log('📏 Limits: Individual=' + MAX_FILE_SIZE_MB + 'MB, Total=' + MAX_TOTAL_SIZE_MB + 'MB');
+
+    function setupValidation() {
+        const input = document.getElementById('update-photo-upload');
+
+        if (!input) {
+            //console.log('⚠️ Update photo input not found');
+            return;
+        }
+
+        //console.log('✅ Update photo input found, setting up validation');
+
+        // Validate files BEFORE Livewire processes them
+        input.addEventListener('change', function(e) {
+            //console.log('📁 Update files selected:', e.target.files.length);
+
+            const files = Array.from(e.target.files);
+            let totalSize = 0;
+            const oversizedFiles = [];
+
+            files.forEach(file => {
+                const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+                //console.log(`  - ${file.name}: ${sizeMB}MB`);
+                totalSize += file.size;
+
+                if (file.size > MAX_FILE_SIZE_BYTES) {
+                    oversizedFiles.push({ name: file.name, size: sizeMB });
+                }
+            });
+
+            const totalSizeMB = (totalSize / 1024 / 1024).toFixed(2);
+            //console.log('📊 Total size: ' + totalSizeMB + 'MB');
+
+            const errorDiv = document.getElementById('update-file-size-error');
+            const errorMessage = document.getElementById('update-file-size-error-message');
+            const successMessage = document.getElementById('update-success-message');
+            let message = '';
+            let hasError = false;
+
+            // Check individual file sizes
+            if (oversizedFiles.length > 0) {
+                //console.log('❌ Individual files exceed ' + MAX_FILE_SIZE_MB + 'MB:', oversizedFiles.length);
+                hasError = true;
+                message = '<p class="font-semibold mb-1">The following file(s) exceed ' + MAX_FILE_SIZE_MB + 'MB:</p>';
+                message += '<ul class="list-disc list-inside space-y-0.5">';
+                oversizedFiles.forEach(file => {
+                    message += '<li><strong>' + file.name + '</strong> (' + file.size + 'MB)</li>';
+                });
+                message += '</ul>';
+            }
+
+            // Check total size
+            if (totalSize > MAX_TOTAL_SIZE_BYTES) {
+                //console.log('❌ Total size exceeds ' + MAX_TOTAL_SIZE_MB + 'MB limit');
+                hasError = true;
+                if (message) message += '<div class="my-2 border-t border-red-300"></div>';
+                message += '<p class="font-semibold mb-1">⚠️ Total upload size too large</p>';
+                message += '<p class="mb-1">Selected: <strong>' + totalSizeMB + 'MB</strong>, Limit: <strong>' + MAX_TOTAL_SIZE_MB + 'MB</strong></p>';
+                message += '<p class="text-xs">Please upload fewer files or compress them.</p>';
+            }
+
+            if (hasError) {
+                // Clear input to prevent Livewire from processing
+                e.target.value = '';
+
+                message += '<p class="text-xs mt-2 pt-2 border-t border-red-300"><strong>💡 Tip:</strong> Use <a href="https://tinypng.com" target="_blank" class="underline">TinyPNG</a> to compress images.</p>';
+
+                if (errorDiv && errorMessage) {
+                    errorMessage.innerHTML = message;
+                    errorDiv.classList.remove('hidden');
+                }
+
+                // Hide success message
+                if (successMessage) {
+                    successMessage.style.display = 'none';
+                }
+
+                // Stop propagation
+                e.stopImmediatePropagation();
+                return false;
+            } else {
+                //console.log('✅ All update files are valid');
+                // Hide error on valid files
+                if (errorDiv) {
+                    errorDiv.classList.add('hidden');
+                }
+            }
+        }, true); // Capture phase
+    }
+
+    // Run on DOMContentLoaded
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setupValidation);
+    } else {
+        setupValidation();
+    }
+
+    // Handle 413 errors - Multiple approaches for better compatibility
+
+    // Approach 1: Livewire hook (Livewire 3 style)
+    document.addEventListener('livewire:init', function() {
+        //console.log('🔌 Livewire initialized for updates, setting up 413 error handler');
+
+        Livewire.hook('request', ({ fail }) => {
+            fail(({ status, content, preventDefault }) => {
+                //console.log('🚨 Livewire update request failed - Status:', status);
+
+                if (status === 413) {
+                    //console.log('❌ 413 Error caught by Livewire hook (updates)');
+                    preventDefault();
+                    show413ErrorUpdate();
+                }
+            });
+        });
+
+        //console.log('✅ Livewire hook registered for updates');
+    });
+
+    // Approach 2: Intercept fetch globally (backup method)
+    const originalFetch = window.fetch;
+    window.fetch = function(...args) {
+        return originalFetch.apply(this, args)
+            .then(response => {
+                if (response.status === 413) {
+                    //console.log('❌ 413 Error caught by fetch interceptor (updates)');
+                    show413ErrorUpdate();
+                }
+                return response;
+            })
+            .catch(error => {
+                //console.log('❌ Fetch error:', error);
+                throw error;
+            });
+    };
+
+    // Approach 3: Monitor Livewire file uploads specifically
+    document.addEventListener('livewire:upload-error', function(event) {
+        //console.log('❌ Livewire upload error event (updates):', event.detail);
+        if (event.detail && event.detail.status === 413) {
+            show413ErrorUpdate();
+        }
+    });
+
+    // Function to display 413 error
+    function show413ErrorUpdate() {
+        const errorDiv = document.getElementById('update-file-size-error');
+        const errorMessage = document.getElementById('update-file-size-error-message');
+        const successMessage = document.getElementById('update-success-message');
+
+        if (errorDiv && errorMessage) {
+            errorMessage.innerHTML =
+                '<p class="font-semibold mb-1">⚠️ Server Error 413: Request Too Large</p>' +
+                '<p class="mb-1">The server rejected the upload. Total size is too large.</p>' +
+                '<ul class="list-disc list-inside text-xs space-y-0.5 mb-1">' +
+                '<li>Total must be under ' + MAX_TOTAL_SIZE_MB + 'MB</li>' +
+                '<li>Individual files under ' + MAX_FILE_SIZE_MB + 'MB</li>' +
+                '</ul>' +
+                '<p class="text-xs"><strong>💡 Solution:</strong> Upload fewer files or compress with <a href="https://tinypng.com" target="_blank" class="underline">TinyPNG</a>.</p>';
+
+            errorDiv.classList.remove('hidden');
+            //console.log('✅ 413 Error message displayed for updates');
+        }
+
+        // Hide success message
+        if (successMessage) {
+            successMessage.style.display = 'none';
+        }
+
+        // Clear file input
+        const fileInput = document.getElementById('update-photo-upload');
+        if (fileInput) {
+            fileInput.value = '';
+            //console.log('🧹 Update file input cleared');
+        }
+
+        // Try to clear Livewire component property
+        try {
+            const wireElement = document.querySelector('[wire\\:id]');
+            if (wireElement) {
+                const wireId = wireElement.getAttribute('wire:id');
+                const component = Livewire.find(wireId);
+                if (component) {
+                    component.set('updatePhotos', []);
+                    //console.log('🧹 Livewire updatePhotos property cleared');
+                } else {
+                    //console.log('⚠️ Livewire component not found');
+                }
+            } else {
+                //console.log('⚠️ No element with wire:id found');
+            }
+        } catch (e) {
+            //console.log('⚠️ Could not clear Livewire property:', e.message);
+        }
+    }
+})();
+</script>

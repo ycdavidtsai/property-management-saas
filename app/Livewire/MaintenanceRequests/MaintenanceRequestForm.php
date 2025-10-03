@@ -11,7 +11,6 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -78,6 +77,21 @@ class MaintenanceRequestForm extends Component
         }
 
         return $rules;
+    }
+
+    protected function messages()
+    {
+        return [
+            'property_id.required' => 'Please select a property.',
+            'property_id.exists' => 'The selected property is invalid.',
+            'title.required' => 'Please enter a title for your maintenance request.',
+            'title.max' => 'The title must not exceed 255 characters.',
+            'description.required' => 'Please describe the maintenance issue in detail.',
+            'priority.required' => 'Please select a priority level.',
+            'preferred_date.after' => 'The preferred date must be in the future.',
+            'newPhotos.*.image' => 'All uploaded files must be images (JPG, PNG, GIF, etc.)',
+            'newPhotos.*.max' => 'Each image must not exceed 5MB. Please compress or resize your images.',
+        ];
     }
 
     private function getTenantPropertyIds($user)
@@ -169,7 +183,7 @@ class MaintenanceRequestForm extends Component
     public function updatedNewPhotos()
     {
         // Debug logging for file upload validation
-        Log::info('File Upload Attempt:', [
+        \Log::info('File Upload Attempt:', [
             'files_count' => count($this->newPhotos),
             'files_details' => collect($this->newPhotos)->map(function($file) {
                 return [
@@ -185,12 +199,15 @@ class MaintenanceRequestForm extends Component
         try {
             $this->validate([
                 'newPhotos.*' => 'nullable|image|max:5120', // 5MB max
+            ], [
+                'newPhotos.*.image' => 'The file must be an image (JPG, PNG, GIF, etc.)',
+                'newPhotos.*.max' => 'Each image must not be larger than 5MB. Please reduce the file size or choose a smaller image.',
             ]);
-            Log::info('File validation passed');
-        } catch (\Exception $e) {
-            Log::error('File validation failed:', [
+            \Log::info('File validation passed');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('File validation failed:', [
                 'error' => $e->getMessage(),
-                'validation_errors' => $e instanceof \Illuminate\Validation\ValidationException ? $e->errors() : null
+                'validation_errors' => $e->errors()
             ]);
 
             // Re-throw to show user the error
@@ -206,7 +223,7 @@ class MaintenanceRequestForm extends Component
         $roleService = app(RoleService::class);
 
         // Debug: Check what files we have before processing
-        Log::info('Save method - File debugging:', [
+        \Log::info('Save method - File debugging:', [
             'newPhotos_count' => count($this->newPhotos),
             'newPhotos_types' => collect($this->newPhotos)->map(fn($photo) => get_class($photo))->toArray(),
             'existing_photos_count' => count($this->photos),
@@ -216,7 +233,7 @@ class MaintenanceRequestForm extends Component
         $uploadedPhotos = [];
         foreach ($this->newPhotos as $photo) {
             try {
-                Log::info('Processing file:', [
+                \Log::info('Processing file:', [
                     'name' => $photo->getClientOriginalName(),
                     'size' => $photo->getSize(),
                     'temp_path' => $photo->getPathname(),
@@ -224,7 +241,7 @@ class MaintenanceRequestForm extends Component
 
                 $path = $photo->store('maintenance-photos', 'public');
 
-                Log::info('File stored successfully:', [
+                \Log::info('File stored successfully:', [
                     'path' => $path,
                     'full_path' => storage_path('app/public/' . $path),
                     'file_exists' => file_exists(storage_path('app/public/' . $path)),
@@ -232,14 +249,14 @@ class MaintenanceRequestForm extends Component
 
                 $uploadedPhotos[] = $path;
             } catch (\Exception $e) {
-                Log::error('File upload failed:', [
+                \Log::error('File upload failed:', [
                     'error' => $e->getMessage(),
                     'file' => $photo->getClientOriginalName(),
                 ]);
             }
         }
 
-        Log::info('Upload summary:', [
+        \Log::info('Upload summary:', [
             'uploaded_photos' => $uploadedPhotos,
             'total_uploaded' => count($uploadedPhotos),
         ]);

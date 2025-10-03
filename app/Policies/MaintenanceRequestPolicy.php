@@ -26,9 +26,17 @@ class MaintenanceRequestPolicy
 
         // Tenants can only see their own requests
         if ($this->roleService->isTenant($user)) {
-            // Use loose comparison "==" not "===" due to database driver differences
-            // between local (SQLite) and production (MySQL)
-            return $user->id == $maintenanceRequest->tenant_id;
+            // Debug logging for live server
+            \Log::info('Tenant Authorization Check:', [
+                'user_id' => $user->id,
+                'user_id_type' => gettype($user->id),
+                'request_tenant_id' => $maintenanceRequest->tenant_id,
+                'request_tenant_id_type' => gettype($maintenanceRequest->tenant_id),
+                'ids_match' => $user->id === $maintenanceRequest->tenant_id,
+                'ids_equal_loose' => $user->id == $maintenanceRequest->tenant_id,
+            ]);
+
+            return $user->id == $maintenanceRequest->tenant_id; // Use == instead of ===
         }
 
         return true;
@@ -53,14 +61,14 @@ class MaintenanceRequestPolicy
         }
 
         // Management users can always edit
-        return $this->roleService->roleHasPermission($user, 'manage_properties');
+        return $this->roleService->hasPermission($user, 'manage_properties');
     }
 
     public function delete(User $user, MaintenanceRequest $maintenanceRequest): bool
     {
         // Only managers/admins can delete, and only if status is 'submitted'
         return $user->organization_id === $maintenanceRequest->organization_id &&
-               $this->roleService->roleHasPermission($user->role, 'manage_properties') &&
+               $this->roleService->hasPermission($user, 'manage_properties') &&
                $maintenanceRequest->status === 'submitted';
     }
 }

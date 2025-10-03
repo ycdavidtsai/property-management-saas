@@ -142,6 +142,7 @@ class RoleService
             'tenant' => [
                 // Limited access
                 'maintenance.view',
+                'maintenance.create', // Tenants can create maintenance requests
                 'payments.view',
                 'leases.view', // Can view their own lease details only
                 'units.view', // Add if tenants should see their unit details
@@ -237,11 +238,36 @@ class RoleService
         return self::roleHasPermission($role, 'leases.view');
     }
 
-    // Checks if the given user has the 'tenant' role
+    /**
+     * Check if user has a specific permission (instance method)
+     */
+    public function hasPermission($user, string $permission): bool
+    {
+        return self::roleHasPermission($user->role, $permission);
+    }
+
+    /**
+     * Check if user can manage properties (legacy method)
+     */
+    public function canManageProperties($user): bool
+    {
+        return self::roleHasPermission($user->role, 'properties.edit');
+    }
+
+    /**
+     * Check if user can create maintenance requests
+     */
+    public function canCreateMaintenance($user): bool
+    {
+        return self::roleHasPermission($user->role, 'maintenance.create');
+    }
+
+    /**
+     * Check if the given user has the 'tenant' role
+     */
     public function isTenant($user)
     {
         // Adjust this logic based on how roles are stored in your User model
         return $user->role === 'tenant';
     }
-
 }
