@@ -1,20 +1,20 @@
 {{-- Sidebar Navigation Component --}}
-<div x-data="{ 
+<div x-data="{
     sidebarOpen: false,
-    userDropdownOpen: false 
+    userDropdownOpen: false
 }" class="h-screen flex overflow-hidden bg-gray-100">
-    
+
     {{-- Mobile sidebar overlay --}}
-    <div x-show="sidebarOpen" 
+    <div x-show="sidebarOpen"
          x-transition:enter="transition-opacity ease-linear duration-300"
          x-transition:enter-start="opacity-0"
          x-transition:enter-end="opacity-100"
          x-transition:leave="transition-opacity ease-linear duration-300"
          x-transition:leave-start="opacity-100"
          x-transition:leave-end="opacity-0"
-         class="fixed inset-0 flex z-40 md:hidden" 
+         class="fixed inset-0 flex z-40 md:hidden"
          style="display: none;">
-        
+
         {{-- Overlay background --}}
         <div x-show="sidebarOpen"
              x-transition:enter="transition-opacity ease-linear duration-300"
@@ -36,7 +36,7 @@
              x-transition:leave-start="translate-x-0"
              x-transition:leave-end="-translate-x-full"
              class="relative flex-1 flex flex-col max-w-xs w-full bg-white">
-            
+
             {{-- Close button --}}
             <div x-show="sidebarOpen"
                  x-transition:enter="ease-in-out duration-300"
@@ -77,7 +77,7 @@
     <div class="hidden md:flex md:flex-shrink-0">
         <div class="flex flex-col w-64">
             <div class="flex flex-col h-0 flex-1 border-r border-gray-200 bg-white">
-                
+
                 {{-- Logo and brand --}}
                 <div class="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
                     <div class="flex items-center flex-shrink-0 px-4">
@@ -91,6 +91,21 @@
                             <div class="bg-gray-50 rounded-lg p-3">
                                 <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Organization</div>
                                 <div class="mt-1 text-sm font-medium text-gray-900">{{ auth()->user()->organization->name }}</div>
+                                <div class="mt-1">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        {{ App\Services\RoleService::getRoleDisplayName(auth()->user()->role) }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+
+                    {{-- Tenant Property info , added by DT--}}
+                    @if(auth()->user()->role === 'tenant')
+                        <div class="mt-4 px-4">
+                            <div class="bg-gray-50 rounded-lg p-3">
+                                <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Property Address:</div>
+                                <div class="mt-1 text-sm font-medium text-gray-900">{{ auth()->user()->activeLease()->unit->property->address }}</div>
                                 <div class="mt-1">
                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                         {{ App\Services\RoleService::getRoleDisplayName(auth()->user()->role) }}
@@ -116,7 +131,7 @@
 
     {{-- Main content area --}}
     <div class="flex flex-col w-0 flex-1 overflow-hidden">
-        
+
         {{-- Top bar with mobile menu button --}}
         <div class="md:hidden pl-1 pt-1 sm:pl-3 sm:pt-3">
             <button @click="sidebarOpen = true"

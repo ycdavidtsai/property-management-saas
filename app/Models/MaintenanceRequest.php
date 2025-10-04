@@ -127,4 +127,13 @@ class MaintenanceRequest extends Model
     {
         return in_array($this->status, ['completed']);
     }
+
+    /**
+     * Get the vendor assigned to this maintenance request
+     */
+    public function vendor(): BelongsTo
+    {
+        return $this->belongsTo(Vendor::class, 'assigned_vendor_id');
+    }
+
 }

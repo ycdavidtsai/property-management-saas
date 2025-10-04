@@ -7,6 +7,7 @@ use App\Http\Controllers\TenantController;
 use App\Http\Controllers\LeaseController;
 use App\Http\Controllers\UnitController;
 use App\Http\Controllers\MaintenanceRequestController;
+use App\Http\Controllers\VendorController;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
@@ -63,33 +64,42 @@ Route::middleware(['auth', 'verified', 'organization'])->group(function () {
         Route::get('/{unit}/edit', [UnitController::class, 'edit'])->name('edit');
     });
 
-Route::middleware(['auth', 'organization'])->group(function () {
-    Route::resource('maintenance-requests', MaintenanceRequestController::class);
+    Route::middleware(['auth', 'organization'])->group(function () {
+        Route::resource('maintenance-requests', MaintenanceRequestController::class);
+    });
+
+    // Vendor Management Routes
+    Route::prefix('vendors')->name('vendors.')->group(function () {
+        Route::get('/', [VendorController::class, 'index'])->name('index');
+        Route::get('/create', [VendorController::class, 'create'])->name('create');
+        Route::get('/{vendor}', [VendorController::class, 'show'])->name('show');
+        Route::get('/{vendor}/edit', [VendorController::class, 'edit'])->name('edit');
+    });
+
 });
 
-    });
 // Add to web.php temporarily
-Route::get('/test-storage', function() {
-    try {
-        Storage::disk('public')->put('test-file.txt', 'test content');
-        return [
-            'storage_works' => true,
-            'file_exists' => Storage::disk('public')->exists('test-file.txt'),
-            'file_url' => asset('storage/test-file.txt'),
-            'full_path' => storage_path('app/public/test-file.txt'),
-            'directory_writable' => is_writable(storage_path('app/public')),
-        ];
-    } catch (\Exception $e) {
-        return [
-            'storage_works' => false,
-            'error' => $e->getMessage(),
-            'storage_path' => storage_path('app/public'),
-            'exists' => is_dir(storage_path('app/public')),
-            'writable' => is_writable(storage_path('app/public')),
-        ];
-    }
-})->middleware('auth');
+// Route::get('/test-storage', function() {
+//     try {
+//         Storage::disk('public')->put('test-file.txt', 'test content');
+//         return [
+//             'storage_works' => true,
+//             'file_exists' => Storage::disk('public')->exists('test-file.txt'),
+//             'file_url' => asset('storage/test-file.txt'),
+//             'full_path' => storage_path('app/public/test-file.txt'),
+//             'directory_writable' => is_writable(storage_path('app/public')),
+//         ];
+//     } catch (\Exception $e) {
+//         return [
+//             'storage_works' => false,
+//             'error' => $e->getMessage(),
+//             'storage_path' => storage_path('app/public'),
+//             'exists' => is_dir(storage_path('app/public')),
+//             'writable' => is_writable(storage_path('app/public')),
+//         ];
+//     }
+// })->middleware('auth');
 
-Route::get('/test-upload', \App\Livewire\TestUpload::class)->middleware('auth');
+//Route::get('/test-upload', \App\Livewire\TestUpload::class)->middleware('auth');
 
 require __DIR__.'/auth.php';
