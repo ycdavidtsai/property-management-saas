@@ -74,6 +74,7 @@ Route::middleware(['auth', 'verified', 'organization'])->group(function () {
         Route::get('/create', [VendorController::class, 'create'])->name('create');
         Route::get('/{vendor}', [VendorController::class, 'show'])->name('show');
         Route::get('/{vendor}/edit', [VendorController::class, 'edit'])->name('edit');
+        Route::delete('/{vendor}', [VendorController::class, 'destroy'])->name('destroy');
     });
 
 });

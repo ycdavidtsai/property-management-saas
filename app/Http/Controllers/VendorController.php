@@ -52,4 +52,23 @@ class VendorController extends Controller
 
         return view('vendors.edit', compact('vendor'));
     }
+
+    /**
+     * Remove the specified vendor from storage
+     */
+    public function destroy(Vendor $vendor)
+    {
+        $this->authorize('delete', $vendor);
+
+        // Check if vendor has any maintenance requests
+        if ($vendor->maintenanceRequests()->count() > 0) {
+            return back()->with('error', 'Cannot delete vendor with existing maintenance requests. Deactivate the vendor instead.');
+        }
+
+        $vendorName = $vendor->name;
+        $vendor->delete();
+
+        return redirect()->route('vendors.index')
+            ->with('message', "Vendor '{$vendorName}' has been permanently deleted.");
+    }
 }

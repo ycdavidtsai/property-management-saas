@@ -14,6 +14,7 @@ class VendorShow extends Component
     public Vendor $vendor;
     public $activeTab = 'details';
     public $requestStatusFilter = 'all';
+    public $showDeleteModal = false;
 
     protected $queryString = [
         'activeTab' => ['except' => 'details'],
@@ -41,6 +42,17 @@ class VendorShow extends Component
         ]);
 
         session()->flash('message', 'Vendor status updated successfully.');
+    }
+
+    public function confirmDelete()
+    {
+        $this->authorize('delete', $this->vendor);
+        $this->showDeleteModal = true;
+    }
+
+    public function cancelDelete()
+    {
+        $this->showDeleteModal = false;
     }
 
     public function render()

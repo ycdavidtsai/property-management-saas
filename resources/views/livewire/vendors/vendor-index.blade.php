@@ -48,7 +48,7 @@
                 <div class="mt-6">
                     <a href="{{ route('vendors.create') }}"
                         class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
-                        New Vendor
+                        Create New Vendor
                     </a>
                 </div>
             </div>
@@ -136,13 +136,49 @@
                                     @endif
                                 </button>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            {{-- <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <a href="{{ route('vendors.show', $vendor) }}" class="text-blue-600 hover:text-blue-900 mr-3">
                                     View
                                 </a>
                                 <a href="{{ route('vendors.edit', $vendor) }}" class="text-indigo-600 hover:text-indigo-900">
                                     Edit
                                 </a>
+                            </td> --}}
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <div class="flex items-center justify-end space-x-2">
+                                    <a href="{{ route('vendors.show', $vendor) }}"
+                                    class="text-blue-600 hover:text-blue-900"
+                                    title="View Details">
+                                        View
+                                    </a>
+                                    <a href="{{ route('vendors.edit', $vendor) }}"
+                                    class="text-indigo-600 hover:text-indigo-900"
+                                    title="Edit Vendor">
+                                        Edit
+                                    </a>
+
+                                    @can('delete', $vendor)
+                                        @if($vendor->maintenance_requests_count == 0)
+                                            <form action="{{ route('vendors.destroy', $vendor) }}"
+                                                method="POST"
+                                                onsubmit="return confirm('Are you sure you want to permanently delete {{ $vendor->name }}? This action cannot be undone.')"
+                                                class="inline">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit"
+                                                        class="text-red-600 hover:text-red-900"
+                                                        title="Delete Vendor">
+                                                    Delete
+                                                </button>
+                                            </form>
+                                        @else
+                                            <span class="text-gray-400 cursor-not-allowed"
+                                                title="Cannot delete vendor with maintenance requests">
+                                                Delete
+                                            </span>
+                                        @endif
+                                    @endcan
+                                </div>
                             </td>
                         </tr>
                     @empty
