@@ -3,160 +3,205 @@
 namespace App\Livewire\MaintenanceRequests;
 
 use App\Models\MaintenanceRequest;
-use App\Models\MaintenanceRequestUpdate;
 use App\Models\Vendor;
-use App\Services\RoleService;
+use App\Models\MaintenanceRequestUpdate;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
-use Livewire\WithFileUploads;
+use Livewire\WithPagination;
 
 class MaintenanceRequestShow extends Component
 {
-    use WithFileUploads, AuthorizesRequests;
+    use WithPagination, AuthorizesRequests;
 
-    public MaintenanceRequest $maintenanceRequest;
-    public $newUpdate = '';
-    public $updatePhotos = [];
-    public $isInternal = false;
+    public MaintenanceRequest $request;
+    public $activeTab = 'details';
 
-    // Quick actions
+    // Vendor Assignment Modal
     public $showAssignModal = false;
-    public $selectedVendorId = '';
-    public $showStatusModal = false;
-    public $newStatus = '';
-    public $statusNotes = '';
+    public $selectedVendorId = null;
+    public $assignmentNotes = '';
 
-    protected $rules = [
-        'newUpdate' => 'required|string|min:3',
-        'updatePhotos.*' => 'nullable|image|max:5120',
-        'selectedVendorId' => 'required|exists:vendors,id',
-        'newStatus' => 'required|string',
-        'statusNotes' => 'nullable|string',
+    protected $queryString = [
+        'activeTab' => ['except' => 'details'],
     ];
 
-    protected $messages = [
-        'newUpdate.required' => 'Please enter a message for your update.',
-        'newUpdate.min' => 'Your update message must be at least 3 characters.',
-        'updatePhotos.*.image' => 'All uploaded files must be images (JPG, PNG, GIF, etc.)',
-        'updatePhotos.*.max' => 'Each image must not exceed 5MB. Please compress or resize your images.',
-        'selectedVendorId.required' => 'Please select a vendor to assign.',
-        'selectedVendorId.exists' => 'The selected vendor is invalid.',
-        'newStatus.required' => 'Please select a new status.',
-    ];
-
-    public function mount(MaintenanceRequest $maintenanceRequest)
+    public function mount(MaintenanceRequest $request)
     {
-        $this->authorize('view', $maintenanceRequest);
-        $this->maintenanceRequest = $maintenanceRequest;
+        $this->authorize('view', $request);
+        $this->request = $request;
+
+        // Pre-select current vendor if assigned
+        if ($request->assigned_vendor_id) {
+            $this->selectedVendorId = $request->assigned_vendor_id;
+            $this->assignmentNotes = $request->assignment_notes ?? '';
+        }
     }
 
-    public function addUpdate()
+    public function setActiveTab($tab)
     {
-        $this->validate(['newUpdate' => 'required|string|min:3']);
+        $this->activeTab = $tab;
+        $this->resetPage();
+    }
 
-        $user = Auth::user();
-        $roleService = app(RoleService::class);
+    /**
+     * Open the vendor assignment modal
+     */
+    public function openAssignModal()
+    {
+        $this->authorize('update', $this->request);
 
-        // Handle photo uploads
-        $uploadedPhotos = [];
-        foreach ($this->updatePhotos as $photo) {
-            $path = $photo->store('maintenance-updates', 'public');
-            $uploadedPhotos[] = $path;
+        // Reset or pre-populate
+        if (!$this->request->assigned_vendor_id) {
+            $this->selectedVendorId = null;
+            $this->assignmentNotes = '';
         }
 
-        MaintenanceRequestUpdate::create([
-            'maintenance_request_id' => $this->maintenanceRequest->id,
-            'user_id' => $user->id,
-            'message' => $this->newUpdate,
-            'photos' => $uploadedPhotos,
-            'type' => 'comment',
-            'is_internal' => $this->isInternal && !$roleService->isTenant($user),
-        ]);
-
-        $this->reset(['newUpdate', 'updatePhotos', 'isInternal']);
-        $this->maintenanceRequest->refresh();
-        $this->maintenanceRequest->load('updates.user');
-
-        session()->flash('message', 'Update added successfully.');
+        $this->showAssignModal = true;
     }
 
+    /**
+     * Close the vendor assignment modal
+     */
+    public function closeAssignModal()
+    {
+        $this->showAssignModal = false;
+        $this->resetValidation();
+    }
+
+    /**
+     * Assign vendor to the maintenance request
+     */
     public function assignVendor()
     {
-        $this->validate(['selectedVendorId' => 'required|exists:vendors,id']);
+        $this->authorize('update', $this->request);
 
-        $user = Auth::user();
-        $vendor = Vendor::find($this->selectedVendorId);
+        $this->validate([
+            'selectedVendorId' => 'required|exists:vendors,id',
+            'assignmentNotes' => 'nullable|string|max:1000',
+        ]);
 
-        $this->maintenanceRequest->update([
-            'assigned_vendor_id' => $this->selectedVendorId,
-            'assigned_by' => $user->id,
+        // Get the vendor
+        $vendor = Vendor::where('organization_id', Auth::user()->organization_id)
+            ->findOrFail($this->selectedVendorId);
+
+        $previousVendor = $this->request->vendor;
+        $isReassignment = $this->request->assigned_vendor_id !== null;
+        $isNewAssignment = $this->request->assigned_vendor_id === null;
+
+        // Update the maintenance request
+        $this->request->update([
+            'assigned_vendor_id' => $vendor->id,
             'assigned_at' => now(),
-            'status' => 'assigned',
+            'assigned_by' => Auth::id(),
+            'assignment_notes' => $this->assignmentNotes,
+            'status' => $isNewAssignment && $this->request->status === 'submitted'
+                ? 'assigned'
+                : $this->request->status,
         ]);
 
-        // Add update
-        MaintenanceRequestUpdate::create([
-            'maintenance_request_id' => $this->maintenanceRequest->id,
-            'user_id' => $user->id,
-            'message' => "Assigned to vendor: {$vendor->name}",
-            'type' => 'assignment',
-            'metadata' => ['vendor_id' => $vendor->id, 'vendor_name' => $vendor->name],
-        ]);
+        // Create update record for timeline
+        $updateMessage = $isReassignment
+            ? "Vendor reassigned from {$previousVendor->name} to {$vendor->name}"
+            : "Vendor {$vendor->name} assigned to this request";
 
-        $this->reset(['showAssignModal', 'selectedVendorId']);
-        $this->maintenanceRequest->refresh();
-
-        session()->flash('message', 'Vendor assigned successfully.');
-    }
-
-    public function updateStatus()
-    {
-        $this->validate(['newStatus' => 'required|string']);
-
-        $user = Auth::user();
-        $oldStatus = $this->maintenanceRequest->status;
-
-        $updateData = ['status' => $this->newStatus];
-
-        // Set appropriate timestamps
-        if ($this->newStatus === 'in_progress' && !$this->maintenanceRequest->started_at) {
-            $updateData['started_at'] = now();
-        } elseif ($this->newStatus === 'completed' && !$this->maintenanceRequest->completed_at) {
-            $updateData['completed_at'] = now();
-        } elseif ($this->newStatus === 'closed' && !$this->maintenanceRequest->closed_at) {
-            $updateData['closed_at'] = now();
+        if ($this->assignmentNotes) {
+            $updateMessage .= "\n\nAssignment Notes: {$this->assignmentNotes}";
         }
 
-        $this->maintenanceRequest->update($updateData);
-
-        // Add update
         MaintenanceRequestUpdate::create([
-            'maintenance_request_id' => $this->maintenanceRequest->id,
-            'user_id' => $user->id,
-            'message' => $this->statusNotes ?: "Status changed from {$oldStatus} to {$this->newStatus}",
-            'type' => 'status_change',
-            'metadata' => ['old_status' => $oldStatus, 'new_status' => $this->newStatus],
+            'maintenance_request_id' => $this->request->id,
+            'user_id' => Auth::id(),
+            'update_type' => 'assignment',
+            'message' => $updateMessage,
+            'is_internal' => false,
         ]);
 
-        $this->reset(['showStatusModal', 'newStatus', 'statusNotes']);
-        $this->maintenanceRequest->refresh();
+        // If status changed, create status change update
+        if ($isNewAssignment && $this->request->status === 'assigned') {
+            MaintenanceRequestUpdate::create([
+                'maintenance_request_id' => $this->request->id,
+                'user_id' => Auth::id(),
+                'update_type' => 'status_change',
+                'message' => "Status changed from submitted to assigned",
+                'is_internal' => false,
+            ]);
+        }
 
-        session()->flash('message', 'Status updated successfully.');
+        // Refresh the request to get updated relationships
+        $this->request->refresh();
+
+        // Close modal and show success
+        $this->showAssignModal = false;
+        $this->assignmentNotes = '';
+
+        session()->flash('message', "Vendor successfully assigned to this maintenance request.");
+    }
+
+    /**
+     * Remove vendor assignment
+     */
+    public function unassignVendor()
+    {
+        $this->authorize('update', $this->request);
+
+        if (!$this->request->assigned_vendor_id) {
+            return;
+        }
+
+        $vendorName = $this->request->vendor->name;
+
+        // Update the request
+        $this->request->update([
+            'assigned_vendor_id' => null,
+            'assigned_at' => null,
+            'assigned_by' => null,
+            'assignment_notes' => null,
+            'status' => $this->request->status === 'assigned' ? 'submitted' : $this->request->status,
+        ]);
+
+        // Create update record
+        MaintenanceRequestUpdate::create([
+            'maintenance_request_id' => $this->request->id,
+            'user_id' => Auth::id(),
+            'update_type' => 'assignment',
+            'message' => "Vendor {$vendorName} unassigned from this request",
+            'is_internal' => false,
+        ]);
+
+        // If status changed back to submitted
+        if ($this->request->status === 'submitted') {
+            MaintenanceRequestUpdate::create([
+                'maintenance_request_id' => $this->request->id,
+                'user_id' => Auth::id(),
+                'update_type' => 'status_change',
+                'message' => "Status changed from assigned to submitted",
+                'is_internal' => false,
+            ]);
+        }
+
+        $this->request->refresh();
+
+        session()->flash('message', "Vendor unassigned from this maintenance request.");
     }
 
     public function render()
     {
-        $user = Auth::user();
-        $roleService = app(RoleService::class);
-
-        $vendors = Vendor::where('organization_id', $this->maintenanceRequest->organization_id)
+        // Get active vendors for assignment dropdown
+        $activeVendors = Vendor::where('organization_id', Auth::user()->organization_id)
             ->where('is_active', true)
+            ->orderBy('name')
             ->get();
 
+        // Get updates/timeline
+        $updates = $this->request->updates()
+            ->with('user')
+            ->latest()
+            ->paginate(10);
+
         return view('livewire.maintenance-requests.maintenance-request-show', [
-            'canManage' => !$roleService->isTenant($user),
-            'vendors' => $vendors,
+            'activeVendors' => $activeVendors,
+            'updates' => $updates,
         ]);
     }
 }

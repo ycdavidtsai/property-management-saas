@@ -64,9 +64,9 @@ Route::middleware(['auth', 'verified', 'organization'])->group(function () {
         Route::get('/{unit}/edit', [UnitController::class, 'edit'])->name('edit');
     });
 
-    Route::middleware(['auth', 'organization'])->group(function () {
-        Route::resource('maintenance-requests', MaintenanceRequestController::class);
-    });
+    // Route::middleware(['auth', 'organization'])->group(function () {
+    //     Route::resource('maintenance-requests', MaintenanceRequestController::class);
+    // });
 
     // Vendor Management Routes
     Route::prefix('vendors')->name('vendors.')->group(function () {
@@ -77,6 +77,18 @@ Route::middleware(['auth', 'verified', 'organization'])->group(function () {
         Route::delete('/{vendor}', [VendorController::class, 'destroy'])->name('destroy');
     });
 
+});
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    // Maintenance Request Routes
+    Route::prefix('maintenance-requests')->name('maintenance-requests.')->group(function () {
+        Route::get('/', [MaintenanceRequestController::class, 'index'])->name('index');
+        Route::get('/create', [MaintenanceRequestController::class, 'create'])->name('create');
+        Route::get('/{maintenanceRequest}', [MaintenanceRequestController::class, 'show'])->name('show');
+        Route::get('/{maintenanceRequest}/edit', [MaintenanceRequestController::class, 'edit'])->name('edit');
+        Route::put('/{maintenanceRequest}', [MaintenanceRequestController::class, 'update'])->name('update');
+        Route::delete('/{maintenanceRequest}', [MaintenanceRequestController::class, 'destroy'])->name('destroy');
+    });
 });
 
 // Add to web.php temporarily

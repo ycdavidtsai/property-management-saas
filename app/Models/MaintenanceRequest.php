@@ -19,6 +19,7 @@ class MaintenanceRequest extends Model
         'tenant_id',
         'assigned_vendor_id',
         'assigned_by',
+        'assignment_notes',
         'title',
         'description',
         'priority',

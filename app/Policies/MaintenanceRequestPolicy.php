@@ -2,21 +2,30 @@
 
 namespace App\Policies;
 
-use App\Models\MaintenanceRequest;
 use App\Models\User;
+use App\Models\MaintenanceRequest;
 use App\Services\RoleService;
 
 class MaintenanceRequestPolicy
 {
-    public function __construct(private RoleService $roleService)
+    protected $roleService;
+
+    public function __construct(RoleService $roleService)
     {
+        $this->roleService = $roleService;
     }
 
+    /**
+     * Determine if the user can view any maintenance requests
+     */
     public function viewAny(User $user): bool
     {
-        return true; // Organization middleware handles access
+        return true; // All authenticated users can view the index
     }
 
+    /**
+     * Determine if the user can view the maintenance request
+     */
     public function view(User $user, MaintenanceRequest $maintenanceRequest): bool
     {
         // Check organization access
@@ -24,29 +33,26 @@ class MaintenanceRequestPolicy
             return false;
         }
 
-        // Tenants can only see their own requests
+        // Tenants can only view their own requests
         if ($this->roleService->isTenant($user)) {
-            // Debug logging for live server
-            \Log::info('Tenant Authorization Check:', [
-                'user_id' => $user->id,
-                'user_id_type' => gettype($user->id),
-                'request_tenant_id' => $maintenanceRequest->tenant_id,
-                'request_tenant_id_type' => gettype($maintenanceRequest->tenant_id),
-                'ids_match' => $user->id === $maintenanceRequest->tenant_id,
-                'ids_equal_loose' => $user->id == $maintenanceRequest->tenant_id,
-            ]);
-
-            return $user->id == $maintenanceRequest->tenant_id; // Use == instead of ===
+            return $user->id === $maintenanceRequest->tenant_id;
         }
 
+        // Management users can view all requests
         return true;
     }
 
+    /**
+     * Determine if the user can create maintenance requests
+     */
     public function create(User $user): bool
     {
         return true; // All authenticated users can create requests
     }
 
+    /**
+     * Determine if the user can update the maintenance request
+     */
     public function update(User $user, MaintenanceRequest $maintenanceRequest): bool
     {
         // Check organization access
@@ -60,15 +66,22 @@ class MaintenanceRequestPolicy
                    $maintenanceRequest->status === 'submitted';
         }
 
-        // Management users can always edit
-        return $this->roleService->hasPermission($user, 'manage_properties');
+        // Admin, Manager, and Landlord can update ANY request
+        // This allows them to assign vendors, change status, etc.
+        return in_array($user->role, ['admin', 'manager', 'landlord']);
     }
 
+    /**
+     * Determine if the user can delete the maintenance request
+     */
     public function delete(User $user, MaintenanceRequest $maintenanceRequest): bool
     {
-        // Only managers/admins can delete, and only if status is 'submitted'
-        return $user->organization_id === $maintenanceRequest->organization_id &&
-               $this->roleService->hasPermission($user, 'manage_properties') &&
-               $maintenanceRequest->status === 'submitted';
+        // Check organization access
+        if ($user->organization_id !== $maintenanceRequest->organization_id) {
+            return false;
+        }
+
+        // Only admin and manager, landlord can delete requests
+        return in_array($user->role, ['admin', 'manager', 'landlord']);
     }
 }

@@ -47,12 +47,12 @@ class MaintenanceRequestController extends Controller
             'property',
             'unit',
             'tenant',
-            'assignedVendor',
+            //'assignedVendor',
             'assignedBy',
-            'updates.user'
+            //'updates.user'
         ]);
 
-        return view('maintenance-requests.show', compact('maintenanceRequest'));
+        return view('maintenance-requests.show', [ 'request' => $maintenanceRequest ]);
     }
 
     public function create()
@@ -103,6 +103,9 @@ class MaintenanceRequestController extends Controller
             ->where('is_active', true)
             ->get();
 
-        return view('maintenance-requests.edit', compact('maintenanceRequest', 'vendors'));
+        return view('maintenance-requests.edit', [
+            'request' => $maintenanceRequest,
+            'vendors' => $vendors
+        ]);
     }
 }
