@@ -128,7 +128,7 @@ class MaintenanceRequestShow extends Component
             'maintenance_request_id' => $this->request->id,
             'user_id' => Auth::id(),
             'update_type' => 'assignment',
-            'comment' => $updateMessage,
+            'message' => $updateMessage,
             'is_internal' => false,
         ]);
 
@@ -138,7 +138,7 @@ class MaintenanceRequestShow extends Component
                 'maintenance_request_id' => $this->request->id,
                 'user_id' => Auth::id(),
                 'update_type' => 'status_change',
-                'comment' => "Status changed from submitted to assigned",
+                'message' => "Status changed from submitted to assigned",
                 'is_internal' => false,
             ]);
         }
@@ -180,7 +180,7 @@ class MaintenanceRequestShow extends Component
             'maintenance_request_id' => $this->request->id,
             'user_id' => Auth::id(),
             'update_type' => 'assignment',
-            'comment' => "Vendor {$vendorName} unassigned from this request",
+            'message' => "Vendor {$vendorName} unassigned from this request",
             'is_internal' => false,
         ]);
 
@@ -190,7 +190,7 @@ class MaintenanceRequestShow extends Component
                 'maintenance_request_id' => $this->request->id,
                 'user_id' => Auth::id(),
                 'update_type' => 'status_change',
-                'comment' => "Status changed from assigned to submitted",
+                'message' => "Status changed from assigned to submitted",
                 'is_internal' => false,
             ]);
         }
