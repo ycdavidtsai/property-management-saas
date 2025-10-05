@@ -1,7 +1,4 @@
 <div>
-    {{-- <div class="bg-red-100 p-4 mb-4">
-    LIVEWIRE COMPONENT IS LOADING! Request ID: {{ $request->id }}
-    </div> --}}
     <!-- Request Header Card -->
     <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
         <div class="p-6">
@@ -70,7 +67,7 @@
                                         </button>
                                         <button
                                             wire:click="unassignVendor"
-                                            wire:confirm="Are you sure you want to unassign this vendor?"
+                                            onclick="return confirm('Are you sure you want to unassign this vendor?')"
                                             class="px-3 py-2 text-sm font-medium text-red-700 bg-white border border-red-300 rounded-md hover:bg-red-50"
                                         >
                                             Unassign
@@ -87,19 +84,17 @@
                         </div>
                     @else
                         @can('update', $request)
-                            @if(auth()->user()->role !== 'tenant')
-                                <div class="mt-4">
-                                    <button
-                                        wire:click="openAssignModal"
-                                        class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-sm text-white hover:bg-blue-700"
-                                    >
-                                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                                        </svg>
-                                        Assign Vendor
-                                    </button>
-                                </div>
-                            @endif
+                            <div class="mt-4">
+                                <button
+                                    wire:click="openAssignModal"
+                                    class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-sm text-white hover:bg-blue-700"
+                                >
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                    </svg>
+                                    Assign Vendor
+                                </button>
+                            </div>
                         @endcan
                     @endif
                 </div>
@@ -176,6 +171,134 @@
             @else
                 <!-- Updates/Timeline Tab -->
                 <div>
+                    <!-- Add Comment Form -->
+                    <div class="mb-6 bg-gray-50 rounded-lg p-4 border border-gray-200">
+                        <h4 class="text-sm font-medium text-gray-900 mb-3">Add Update</h4>
+                        <form wire:submit.prevent="addComment">
+                            <div class="space-y-3">
+                                <div>
+                                    <textarea
+                                        wire:model="newComment"
+                                        rows="3"
+                                        placeholder="Add a comment or update..."
+                                        class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        required
+                                    ></textarea>
+                                    @error('newComment')
+                                        <span class="text-red-600 text-sm">{{ $message }}</span>
+                                    @enderror
+                                </div>
+
+                                <!-- Photo Upload -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                                        Attach Photos (Optional)
+                                    </label>
+                                    <input
+                                        type="file"
+                                        wire:model="newCommentPhotos"
+                                        multiple
+                                        accept="image/*"
+                                        class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                    >
+                                    @error('newCommentPhotos.*')
+                                        <span class="text-red-600 text-sm">{{ $message }}</span>
+                                    @enderror
+
+                                    <!-- Upload Progress -->
+                                    <div wire:loading wire:target="newCommentPhotos" class="flex items-center text-blue-600 text-sm mt-2">
+                                        <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Uploading photos...
+                                    </div>
+
+                                    <!-- Upload Success -->
+                                    @if(count($newCommentPhotos) > 0)
+                                        <div wire:loading.remove wire:target="newCommentPhotos" class="flex items-center text-green-600 text-sm mt-2">
+                                            <svg class="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                            </svg>
+                                            {{ count($newCommentPhotos) }} photo(s) ready
+                                        </div>
+                                    @endif
+
+                                    <p class="text-xs text-gray-500 mt-1">
+                                        Maximum file size: 5MB per image
+                                    </p>
+                                </div>
+
+                                <div class="flex items-center justify-between">
+                                    <!-- Internal/Public Toggle (Admin/Manager/Landlord only) -->
+                                    @if($canAddInternalNotes)
+                                        <label class="flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                wire:model="isInternalComment"
+                                                class="rounded border-gray-300 text-red-600 shadow-sm focus:border-red-500 focus:ring-red-500"
+                                            >
+                                            <span class="ml-2 text-sm text-gray-700">
+                                                Internal Note
+                                                <span class="text-xs text-gray-500">(Manager only - not visible to tenant)</span>
+                                            </span>
+                                        </label>
+                                    @else
+                                        <div></div>
+                                    @endif
+
+                                    <button
+                                        type="submit"
+                                        wire:loading.attr="disabled"
+                                        wire:target="newCommentPhotos,addComment"
+                                        class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-sm text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <span wire:loading.remove wire:target="newCommentPhotos,addComment">Add Update</span>
+                                        <span wire:loading wire:target="newCommentPhotos" class="flex items-center">
+                                            <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Processing...
+                                        </span>
+                                        <span wire:loading wire:target="addComment">Saving...</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Internal Updates Toggle (Admin/Manager/Landlord only) -->
+                    @if($canAddInternalNotes)
+                        <div class="mb-4 p-3 bg-white border border-gray-300 rounded-lg">
+                            <button
+                                wire:click="toggleInternalUpdates"
+                                class="w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-md transition-colors {{ $showInternalUpdates ? 'bg-blue-50 text-blue-700 hover:bg-blue-100' : 'bg-gray-50 text-gray-700 hover:bg-gray-100' }}"
+                            >
+                                <span class="flex items-center">
+                                    @if($showInternalUpdates)
+                                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                        </svg>
+                                        <span class="font-semibold">Showing All Updates</span>
+                                        <span class="ml-2 text-xs">(including internal notes)</span>
+                                    @else
+                                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+                                        </svg>
+                                        <span class="font-semibold">Showing Public Updates Only</span>
+                                        <span class="ml-2 text-xs">(internal notes hidden)</span>
+                                    @endif
+                                </span>
+                                <svg class="w-5 h-5 transform {{ $showInternalUpdates ? 'rotate-180' : '' }} transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                </svg>
+                            </button>
+                        </div>
+                    @endif
+
+                    <!-- Timeline -->
                     @if($updates->count() > 0)
                         <div class="space-y-4">
                             @foreach($updates as $update)
@@ -188,16 +311,85 @@
                                         </div>
                                     </div>
                                     <div class="flex-1">
-                                        <div class="bg-gray-50 rounded-lg p-4">
-                                            <div class="flex items-center justify-between mb-2">
-                                                <p class="text-sm font-medium text-gray-900">{{ $update->user->name ?? 'System' }}</p>
-                                                <p class="text-xs text-gray-500">{{ $update->created_at->diffForHumans() }}</p>
+                                        <div class="bg-gray-50 rounded-lg p-4 {{ $update->is_internal ? 'border-2 border-red-200 bg-red-50' : '' }}">
+                                            <div class="flex items-start justify-between mb-2">
+                                                <div class="flex-1">
+                                                    <p class="text-sm font-medium text-gray-900">
+                                                        {{ $update->user->name ?? 'System' }}
+                                                        @if($update->is_internal)
+                                                            <span class="ml-2 px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                                                Internal
+                                                            </span>
+                                                        @endif
+                                                    </p>
+                                                    <p class="text-xs text-gray-500">{{ $update->created_at->diffForHumans() }}</p>
+                                                </div>
+
+                                                <!-- Edit/Delete Actions -->
+                                                @if($editingUpdateId !== $update->id && $update->canBeEditedBy(auth()->user()))
+                                                    <div class="flex space-x-2">
+                                                        <button
+                                                            wire:click="editUpdate('{{ $update->id }}')"
+                                                            class="text-xs text-blue-600 hover:text-blue-900"
+                                                        >
+                                                            Edit
+                                                        </button>
+                                                        @if($update->canBeDeletedBy(auth()->user()))
+                                                            <button
+                                                                wire:click="deleteUpdate('{{ $update->id }}')"
+                                                                wire:confirm="Are you sure you want to delete this update?"
+                                                                class="text-xs text-red-600 hover:text-red-900"
+                                                            >
+                                                                Delete
+                                                            </button>
+                                                        @endif
+                                                    </div>
+                                                @endif
                                             </div>
-                                            <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ $update->message }}</p>
-                                            @if($update->update_type)
-                                                <span class="mt-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                                                    {{ ucfirst(str_replace('_', ' ', $update->update_type)) }}
-                                                </span>
+
+                                            <!-- Edit Form -->
+                                            @if($editingUpdateId === $update->id)
+                                                <form wire:submit.prevent="saveEdit">
+                                                    <textarea
+                                                        wire:model="editingMessage"
+                                                        rows="3"
+                                                        class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 mb-2"
+                                                    ></textarea>
+                                                    <div class="flex space-x-2">
+                                                        <button
+                                                            type="submit"
+                                                            class="px-3 py-1 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+                                                        >
+                                                            Save
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            wire:click="cancelEdit"
+                                                            class="px-3 py-1 bg-gray-300 text-gray-700 rounded-md text-sm hover:bg-gray-400"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            @else
+                                                <!-- Display Message -->
+                                                <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ $update->message }}</p>
+
+                                                <!-- Display Photos -->
+                                                @if($update->photos && count($update->photos) > 0)
+                                                    <div class="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2">
+                                                        @foreach($update->photos as $photo)
+                                                            <img src="{{ Storage::url($photo) }}" alt="Update photo" class="rounded-lg shadow-md">
+                                                        @endforeach
+                                                    </div>
+                                                @endif
+
+                                                <!-- Update Type Badge -->
+                                                @if($update->update_type)
+                                                    <span class="mt-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                                        {{ ucfirst(str_replace('_', ' ', $update->update_type)) }}
+                                                    </span>
+                                                @endif
                                             @endif
                                         </div>
                                     </div>
@@ -215,7 +407,7 @@
                             <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
                             </svg>
-                            <p class="mt-2 text-sm text-gray-500">No updates yet.</p>
+                            <p class="mt-2 text-sm text-gray-500">No updates yet. Be the first to add one!</p>
                         </div>
                     @endif
                 </div>

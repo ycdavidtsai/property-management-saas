@@ -9,10 +9,13 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Illuminate\Support\Facades\Storage;
+use Livewire\WithFileUploads;
+use Illuminate\Support\Facades\Log;
 
 class MaintenanceRequestShow extends Component
 {
-    use WithPagination, AuthorizesRequests;
+    use WithPagination, AuthorizesRequests, WithFileUploads;
 
     public MaintenanceRequest $request;
     public $activeTab = 'details';
@@ -21,6 +24,18 @@ class MaintenanceRequestShow extends Component
     public $showAssignModal = false;
     public $selectedVendorId = null;
     public $assignmentNotes = '';
+
+    // Add Comment/Update - ADD THESE LINES
+    public $newComment = '';
+    public $newCommentPhotos = [];
+    public $isInternalComment = false;
+
+    // Editing update properties
+    public $editingUpdateId = null;
+    public $editingMessage = '';
+
+    // Toggle for showing internal updates
+    public $showInternalUpdates = false;
 
     protected $queryString = [
         'activeTab' => ['except' => 'details'],
@@ -113,7 +128,7 @@ class MaintenanceRequestShow extends Component
             'maintenance_request_id' => $this->request->id,
             'user_id' => Auth::id(),
             'update_type' => 'assignment',
-            'message' => $updateMessage,
+            'comment' => $updateMessage,
             'is_internal' => false,
         ]);
 
@@ -123,7 +138,7 @@ class MaintenanceRequestShow extends Component
                 'maintenance_request_id' => $this->request->id,
                 'user_id' => Auth::id(),
                 'update_type' => 'status_change',
-                'message' => "Status changed from submitted to assigned",
+                'comment' => "Status changed from submitted to assigned",
                 'is_internal' => false,
             ]);
         }
@@ -165,7 +180,7 @@ class MaintenanceRequestShow extends Component
             'maintenance_request_id' => $this->request->id,
             'user_id' => Auth::id(),
             'update_type' => 'assignment',
-            'message' => "Vendor {$vendorName} unassigned from this request",
+            'comment' => "Vendor {$vendorName} unassigned from this request",
             'is_internal' => false,
         ]);
 
@@ -175,7 +190,7 @@ class MaintenanceRequestShow extends Component
                 'maintenance_request_id' => $this->request->id,
                 'user_id' => Auth::id(),
                 'update_type' => 'status_change',
-                'message' => "Status changed from assigned to submitted",
+                'comment' => "Status changed from assigned to submitted",
                 'is_internal' => false,
             ]);
         }
@@ -183,6 +198,129 @@ class MaintenanceRequestShow extends Component
         $this->request->refresh();
 
         session()->flash('message', "Vendor unassigned from this maintenance request.");
+    }
+
+    /**
+     * Add a new comment/update
+     */
+    public function addComment()
+    {
+        $this->authorize('view', $this->request);
+
+        $this->validate([
+            'newComment' => 'required|string|max:2000',
+            'newCommentPhotos.*' => 'nullable|image|max:5120', // 5MB max
+        ]);
+
+        // Handle photo uploads
+        $photoPaths = [];
+        if ($this->newCommentPhotos) {
+            foreach ($this->newCommentPhotos as $photo) {
+                $path = $photo->store('maintenance-updates', 'public');
+                $photoPaths[] = $path;
+            }
+        }
+
+        // Tenants can only create public comments
+        $isInternal = Auth::user()->role === 'tenant' ? false : $this->isInternalComment;
+
+        // DEBUG - Remove this after testing
+        Log::info('Adding comment', [
+            'user_role' => Auth::user()->role,
+            'isInternalComment_property' => $this->isInternalComment,
+            'final_isInternal' => $isInternal
+        ]);
+
+        MaintenanceRequestUpdate::create([
+            'maintenance_request_id' => $this->request->id,
+            'user_id' => Auth::id(),
+            'update_type' => 'comment',
+            'message' => $this->newComment,
+            'is_internal' => $isInternal,
+            'photos' => $photoPaths,
+        ]);
+
+        // Reset form
+        $this->reset(['newComment', 'newCommentPhotos', 'isInternalComment']);
+
+        session()->flash('message', 'Comment added successfully.');
+    }
+
+    /**
+     * Start editing an update
+     */
+    public function editUpdate($updateId)
+    {
+        $update = MaintenanceRequestUpdate::findOrFail($updateId);
+
+        if (!$update->canBeEditedBy(Auth::user())) {
+            session()->flash('error', 'You cannot edit this update.');
+            return;
+        }
+
+        $this->editingUpdateId = $updateId;
+        $this->editingMessage = $update->message;
+    }
+
+    /**
+     * Cancel editing
+     */
+    public function cancelEdit()
+    {
+        $this->reset(['editingUpdateId', 'editingMessage']);
+    }
+
+    /**
+     * Save edited update
+     */
+    public function saveEdit()
+    {
+        $update = MaintenanceRequestUpdate::findOrFail($this->editingUpdateId);
+
+        if (!$update->canBeEditedBy(Auth::user())) {
+            session()->flash('error', 'You cannot edit this update.');
+            return;
+        }
+
+        $this->validate([
+            'editingMessage' => 'required|string|max:2000',
+        ]);
+
+        $update->update(['message' => $this->editingMessage]);
+
+        $this->reset(['editingUpdateId', 'editingMessage']);
+        session()->flash('message', 'Update edited successfully.');
+    }
+
+    /**
+     * Delete an update
+     */
+    public function deleteUpdate($updateId)
+    {
+        $update = MaintenanceRequestUpdate::findOrFail($updateId);
+
+        if (!$update->canBeDeletedBy(Auth::user())) {
+            session()->flash('error', 'You cannot delete this update.');
+            return;
+        }
+
+        // Delete associated photos
+        if ($update->photos) {
+            foreach ($update->photos as $photo) {
+                Storage::disk('public')->delete($photo);
+            }
+        }
+
+        $update->delete();
+        session()->flash('message', 'Update deleted successfully.');
+    }
+
+    /**
+     * Toggle internal updates visibility
+     */
+    public function toggleInternalUpdates()
+    {
+        $this->showInternalUpdates = !$this->showInternalUpdates;
     }
 
     public function render()
@@ -193,15 +331,28 @@ class MaintenanceRequestShow extends Component
             ->orderBy('name')
             ->get();
 
-        // Get updates/timeline
-        $updates = $this->request->updates()
-            ->with('user')
-            ->latest()
-            ->paginate(10);
+        // Get updates/timeline with filtering
+        $updatesQuery = $this->request->updates()->with('user');
+
+        // Tenants only see public updates
+        if (Auth::user()->role === 'tenant') {
+            $updatesQuery->public();
+        } else {
+            // Managers see all by default, but can toggle
+            if (!$this->showInternalUpdates) {
+                $updatesQuery->public();
+            }
+        }
+
+        $updates = $updatesQuery->latest()->paginate(10);
+
+        // Check if user can add internal notes
+        $canAddInternalNotes = in_array(Auth::user()->role, ['admin', 'manager', 'landlord']);
 
         return view('livewire.maintenance-requests.maintenance-request-show', [
             'activeVendors' => $activeVendors,
             'updates' => $updates,
+            'canAddInternalNotes' => $canAddInternalNotes,  // ← Make sure this line is here
         ]);
     }
 }
