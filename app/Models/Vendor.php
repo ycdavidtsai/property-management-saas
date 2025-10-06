@@ -22,6 +22,7 @@ class Vendor extends Model
         'is_active',
         'hourly_rate',
         'notes',
+        'user_id', // Link to users table
     ];
 
     protected $casts = [

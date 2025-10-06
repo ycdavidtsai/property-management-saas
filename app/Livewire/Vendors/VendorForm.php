@@ -3,8 +3,11 @@
 namespace App\Livewire\Vendors;
 
 use App\Models\Vendor;
+use App\Models\User;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Livewire\Component;
 
 class VendorForm extends Component
@@ -20,6 +23,7 @@ class VendorForm extends Component
     public $hourly_rate;
     public $notes;
     public $is_active = true;
+    public $create_user_account = true; // For new vendors
 
     // Available business types
     public $businessTypeOptions = [
@@ -60,6 +64,7 @@ class VendorForm extends Component
             'hourly_rate' => 'nullable|numeric|min:0|max:99999.99',
             'notes' => 'nullable|string|max:1000',
             'is_active' => 'boolean',
+            'create_user_account' => 'boolean',
         ];
     }
 
@@ -89,6 +94,17 @@ class VendorForm extends Component
     {
         $this->validate();
 
+        // Check if email is already used by another vendor in this organization
+        $existingVendor = Vendor::where('organization_id', Auth::user()->organization_id)
+            ->where('email', $this->email)
+            ->when($this->vendor, fn($q) => $q->where('id', '!=', $this->vendor->id))
+            ->first();
+
+        if ($existingVendor) {
+            $this->addError('email', 'A vendor with this email already exists in your organization.');
+            return;
+        }
+
         $data = [
             'name' => $this->name,
             'email' => $this->email,
@@ -105,15 +121,80 @@ class VendorForm extends Component
             // Update existing vendor
             $this->authorize('update', $this->vendor);
             $this->vendor->update($data);
+
+            // Update linked user account if exists
+            if ($this->vendor->user) {
+                $this->vendor->user->update([
+                    'name' => $this->name,
+                    'email' => $this->email,
+                ]);
+            }
+
             session()->flash('message', 'Vendor updated successfully.');
         } else {
             // Create new vendor
             $this->authorize('create', Vendor::class);
             $this->vendor = Vendor::create($data);
-            session()->flash('message', 'Vendor created successfully.');
+
+            // Create user account if requested
+            if ($this->create_user_account) {
+                $this->createUserAccountForVendor($this->vendor);
+            }
+
+            session()->flash('message', 'Vendor created successfully.' .
+                ($this->create_user_account ? ' User account created - please send password reset link to the vendor.' : ''));
         }
 
         return redirect()->route('vendors.show', $this->vendor);
+    }
+
+    public function createUserAccount()
+    {
+        // Check if vendor already has a user account
+        if ($this->vendor && $this->vendor->user) {
+            session()->flash('error', 'This vendor already has a user account.');
+            return;
+        }
+
+        if (!$this->vendor) {
+            session()->flash('error', 'No vendor record found.');
+            return;
+        }
+
+        // Check if email is already taken
+        $existingUser = User::where('email', $this->vendor->email)->first();
+        if ($existingUser) {
+            session()->flash('error', 'This email is already registered as a user account.');
+            return;
+        }
+
+        $this->createUserAccountForVendor($this->vendor);
+
+        $this->vendor->refresh();
+        session()->flash('message', 'User account created successfully. Please send password reset link to the vendor.');
+    }
+
+    private function createUserAccountForVendor(Vendor $vendor)
+    {
+        // Check if email is already taken
+        $existingUser = User::where('email', $vendor->email)->first();
+        if ($existingUser) {
+            return; // Silently fail if user exists
+        }
+
+        //$temporaryPassword = Str::random(16);
+        $temporaryPassword = 'pigu38man'; //temporary fixed password for testing
+
+        $user = User::create([
+            'name' => $vendor->name,
+            'email' => $vendor->email,
+            'password' => Hash::make($temporaryPassword),
+            'organization_id' => $vendor->organization_id,
+            'role' => 'vendor',
+        ]);
+
+        // Link vendor to user
+        $vendor->update(['user_id' => $user->id]);
     }
 
     public function render()

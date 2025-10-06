@@ -1,185 +1,241 @@
 <div>
-    <form wire:submit="save">
-        <!-- Basic Information -->
-        <div class="space-y-6">
-            <div>
-                <h3 class="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
+    @if (session()->has('message'))
+        <div class="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+            {{ session('message') }}
+        </div>
+    @endif
 
-                <!-- Name -->
-                <div class="mb-4">
-                    <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
-                        Vendor Name <span class="text-red-500">*</span>
-                    </label>
-                    <input
-                        type="text"
-                        id="name"
-                        wire:model="name"
-                        class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                        required
-                    >
-                    @error('name')
-                        <span class="text-red-600 text-sm">{{ $message }}</span>
-                    @enderror
-                </div>
+    @if (session()->has('error'))
+        <div class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+            {{ session('error') }}
+        </div>
+    @endif
 
-                <!-- Email -->
-                <div class="mb-4">
-                    <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
-                        Email Address <span class="text-red-500">*</span>
-                    </label>
-                    <input
-                        type="email"
-                        id="email"
-                        wire:model="email"
-                        class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                        required
-                    >
-                    @error('email')
-                        <span class="text-red-600 text-sm">{{ $message }}</span>
-                    @enderror
-                </div>
+    <form wire:submit.prevent="save" class="space-y-6">
+        <!-- Name -->
+        <div>
+            <label for="name" class="block text-sm font-medium text-gray-700">
+                Name <span class="text-red-500">*</span>
+            </label>
+            <input
+                type="text"
+                id="name"
+                wire:model="name"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                required
+            >
+            @error('name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+        </div>
 
-                <!-- Phone -->
-                <div class="mb-4">
-                    <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">
-                        Phone Number
-                    </label>
-                    <input
-                        type="tel"
-                        id="phone"
-                        wire:model="phone"
-                        placeholder="(555) 123-4567"
-                        class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    >
-                    @error('phone')
-                        <span class="text-red-600 text-sm">{{ $message }}</span>
-                    @enderror
-                </div>
-            </div>
+        <!-- Email -->
+        <div>
+            <label for="email" class="block text-sm font-medium text-gray-700">
+                Email <span class="text-red-500">*</span>
+            </label>
+            <input
+                type="email"
+                id="email"
+                wire:model="email"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                required
+            >
+            @error('email') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+        </div>
 
-            <!-- Business Details -->
-            <div class="border-t border-gray-200 pt-6">
-                <h3 class="text-lg font-medium text-gray-900 mb-4">Business Details</h3>
+        <!-- Phone -->
+        <div>
+            <label for="phone" class="block text-sm font-medium text-gray-700">
+                Phone
+            </label>
+            <input
+                type="text"
+                id="phone"
+                wire:model="phone"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            >
+            @error('phone') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+        </div>
 
-                <!-- Business Type -->
-                <div class="mb-4">
-                    <label for="business_type" class="block text-sm font-medium text-gray-700 mb-1">
-                        Business Type <span class="text-red-500">*</span>
-                    </label>
-                    <select
-                        id="business_type"
-                        wire:model="business_type"
-                        class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                        required
-                    >
-                        <option value="">Select a business type</option>
-                        @foreach($businessTypeOptions as $value => $label)
-                            <option value="{{ $value }}">{{ $label }}</option>
-                        @endforeach
-                    </select>
-                    @error('business_type')
-                        <span class="text-red-600 text-sm">{{ $message }}</span>
-                    @enderror
-                </div>
+        <!-- Business Type -->
+        <div>
+            <label for="business_type" class="block text-sm font-medium text-gray-700">
+                Business Type <span class="text-red-500">*</span>
+            </label>
+            <select
+                id="business_type"
+                wire:model="business_type"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                required
+            >
+                <option value="">Select a type...</option>
+                @foreach($businessTypeOptions as $value => $label)
+                    <option value="{{ $value }}">{{ $label }}</option>
+                @endforeach
+            </select>
+            @error('business_type') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+        </div>
 
-                <!-- Specialties -->
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        Specialties
-                    </label>
-                    <div class="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-md p-3">
-                        @foreach($specialtyOptions as $specialty)
-                            <label class="flex items-center">
-                                <input
-                                    type="checkbox"
-                                    wire:model="specialties"
-                                    value="{{ $specialty }}"
-                                    class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                >
-                                <span class="ml-2 text-sm text-gray-700">{{ $specialty }}</span>
-                            </label>
-                        @endforeach
-                    </div>
-                    @error('specialties')
-                        <span class="text-red-600 text-sm">{{ $message }}</span>
-                    @enderror
-                </div>
-
-                <!-- Hourly Rate -->
-                <div class="mb-4">
-                    <label for="hourly_rate" class="block text-sm font-medium text-gray-700 mb-1">
-                        Hourly Rate (Optional)
-                    </label>
-                    <div class="relative rounded-md shadow-sm">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <span class="text-gray-500 sm:text-sm">$</span>
-                        </div>
-                        <input
-                            type="number"
-                            id="hourly_rate"
-                            wire:model="hourly_rate"
-                            step="0.01"
-                            min="0"
-                            placeholder="0.00"
-                            class="w-full pl-7 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                        >
-                    </div>
-                    @error('hourly_rate')
-                        <span class="text-red-600 text-sm">{{ $message }}</span>
-                    @enderror
-                </div>
-            </div>
-
-            <!-- Additional Information -->
-            <div class="border-t border-gray-200 pt-6">
-                <h3 class="text-lg font-medium text-gray-900 mb-4">Additional Information</h3>
-
-                <!-- Notes -->
-                <div class="mb-4">
-                    <label for="notes" class="block text-sm font-medium text-gray-700 mb-1">
-                        Internal Notes
-                    </label>
-                    <textarea
-                        id="notes"
-                        wire:model="notes"
-                        rows="4"
-                        placeholder="Add any internal notes about this vendor..."
-                        class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    ></textarea>
-                    <p class="mt-1 text-sm text-gray-500">These notes are only visible to managers and admins.</p>
-                    @error('notes')
-                        <span class="text-red-600 text-sm">{{ $message }}</span>
-                    @enderror
-                </div>
-
-                <!-- Active Status -->
-                <div class="mb-4">
-                    <label class="flex items-center">
+        <!-- Specialties -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+                Specialties
+            </label>
+            <div class="grid grid-cols-2 gap-2">
+                @foreach($specialtyOptions as $specialty)
+                    <label class="inline-flex items-center">
                         <input
                             type="checkbox"
-                            wire:model="is_active"
+                            wire:model="specialties"
+                            value="{{ $specialty }}"
                             class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                         >
-                        <span class="ml-2 text-sm font-medium text-gray-700">Active Vendor</span>
+                        <span class="ml-2 text-sm text-gray-700">{{ $specialty }}</span>
                     </label>
-                    <p class="ml-6 text-sm text-gray-500">Only active vendors can be assigned to maintenance requests.</p>
+                @endforeach
+            </div>
+            @error('specialties') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+        </div>
+
+        <!-- Hourly Rate -->
+        <div>
+            <label for="hourly_rate" class="block text-sm font-medium text-gray-700">
+                Hourly Rate
+            </label>
+            <div class="mt-1 relative rounded-md shadow-sm">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span class="text-gray-500 sm:text-sm">$</span>
+                </div>
+                <input
+                    type="number"
+                    id="hourly_rate"
+                    wire:model="hourly_rate"
+                    step="0.01"
+                    class="pl-7 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    placeholder="0.00"
+                >
+            </div>
+            @error('hourly_rate') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+        </div>
+
+        <!-- Notes -->
+        <div>
+            <label for="notes" class="block text-sm font-medium text-gray-700">
+                Notes
+            </label>
+            <textarea
+                id="notes"
+                wire:model="notes"
+                rows="3"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="Any additional notes about this vendor..."
+            ></textarea>
+            @error('notes') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+        </div>
+
+        <!-- Portal Access Section -->
+        @if($vendor && $vendor->exists)
+            <!-- Existing Vendor - Show Portal Access Status -->
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <h4 class="font-medium text-gray-900 mb-2">Vendor Portal Access</h4>
+                @if($vendor->user)
+                    <div class="flex items-center text-green-700">
+                        <svg class="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="font-medium">Portal access enabled</span>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-1">
+                        This vendor can log in to view and update assigned maintenance requests.
+                    </p>
+                    <p class="text-sm text-gray-500 mt-1">
+                        User account: <span class="font-medium">{{ $vendor->user->email }}</span>
+                    </p>
+                @else
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="flex items-center text-gray-600">
+                                <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                </svg>
+                                <span class="font-medium">No portal access</span>
+                            </div>
+                            <p class="text-sm text-gray-600 mt-1">
+                                This vendor cannot log in to view assigned work
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            wire:click="createUserAccount"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            Create Portal Access
+                        </button>
+                    </div>
+                @endif
+            </div>
+        @else
+            <!-- New Vendor - Show Checkbox to Create User Account -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div class="flex items-start">
+                    <div class="flex items-center h-5">
+                        <input
+                            type="checkbox"
+                            id="create_user_account"
+                            wire:model="create_user_account"
+                            class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        >
+                    </div>
+                    <div class="ml-3">
+                        <label for="create_user_account" class="font-medium text-gray-900">
+                            Create Vendor Portal Login Account
+                        </label>
+                        <p class="text-sm text-gray-600 mt-1">
+                            Allow this vendor to log in to the vendor portal to view and update their assigned maintenance requests. A temporary password will be generated and you should send a password reset link to the vendor.
+                        </p>
+                    </div>
                 </div>
             </div>
+        @endif
+
+        <!-- Active Status -->
+        <div class="flex items-center">
+            <input
+                type="checkbox"
+                id="is_active"
+                wire:model="is_active"
+                class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            >
+            <label for="is_active" class="ml-2 block text-sm text-gray-900">
+                Active
+            </label>
         </div>
 
         <!-- Form Actions -->
-        <div class="flex items-center justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">
-            <a
-                href="{{ $vendor && $vendor->exists ? route('vendors.show', $vendor) : route('vendors.index') }}"
-                class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-                Cancel
-            </a>
+        <div class="flex justify-end space-x-3 pt-4 border-t">
+            @if($vendor && $vendor->exists)
+                <a
+                    href="{{ route('vendors.show', $vendor) }}"
+                    class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                    Cancel
+                </a>
+            @else
+                <a
+                    href="{{ route('vendors.index') }}"
+                    class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                    Cancel
+                </a>
+            @endif
             <button
                 type="submit"
-                class="px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-sm text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
-                {{ $vendor && $vendor->exists ? 'Update Vendor' : 'Create Vendor' }}
+                @if($vendor && $vendor->exists)
+                    Update Vendor
+                @else
+                    Create Vendor
+                @endif
             </button>
         </div>
     </form>
