@@ -270,4 +270,12 @@ class RoleService
         // Adjust this logic based on how roles are stored in your User model
         return $user->role === 'tenant';
     }
+    /**
+     * Check if the given user has the 'tenant' role
+     */
+    public function isVendor($user)
+    {
+        // Adjust this logic based on how roles are stored in your User model
+        return $user->role === 'vendor';
+    }
 }

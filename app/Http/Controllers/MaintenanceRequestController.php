@@ -30,6 +30,8 @@ class MaintenanceRequestController extends Controller
                 ->where('tenant_id', $user->id)
                 ->latest()
                 ->get();
+        } elseif ($roleService->isVendor($user)) {
+            abort(403, 'Unauthorized access.'); //DT added to prevent vendor from accessing this route
         } else {
             $requests = MaintenanceRequest::where('organization_id', $user->organization_id)
                 ->latest()

@@ -34,6 +34,11 @@ class DashboardController extends Controller
             return redirect()->route('tenant.portal');
         }
 
+        //Vendor portal
+        if ($user->role === 'vendor') {
+            return redirect()->route('vendor.dashboard');
+        }
+
         // Get metrics for management users
         $metrics = [
             'properties' => [

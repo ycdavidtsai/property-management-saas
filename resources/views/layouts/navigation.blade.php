@@ -115,6 +115,7 @@
                         </div>
                     @endif
 
+
                     {{-- Navigation items --}}
                     <nav class="mt-5 flex-1 px-2 space-y-1">
                         @include('layouts.navigation-items')

@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Vendor;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use App\Models\MaintenanceRequest;
+
 
 class VendorController extends Controller
 {
@@ -70,5 +73,56 @@ class VendorController extends Controller
 
         return redirect()->route('vendors.index')
             ->with('message', "Vendor '{$vendorName}' has been permanently deleted.");
+    }
+
+    /**
+     * Display the vendor dashboard
+     */
+    public function dashboard()
+    {
+        // Get vendor record linked to current user
+        $vendor = Auth::user()->vendor;
+
+        if (!$vendor) {
+            abort(403, 'No vendor profile associated with this account.');
+        }
+
+        // Get request counts for metrics
+        $assignedCount = MaintenanceRequest::where('assigned_vendor_id', $vendor->id)
+            ->where('status', 'assigned')
+            ->count();
+
+        $inProgressCount = MaintenanceRequest::where('assigned_vendor_id', $vendor->id)
+            ->where('status', 'in_progress')
+            ->count();
+
+        $completedCount = MaintenanceRequest::where('assigned_vendor_id', $vendor->id)
+            ->where('status', 'completed')
+            ->count();
+
+        return view('vendors.dashboard', compact(
+            'vendor',
+            'assignedCount',
+            'inProgressCount',
+            'completedCount'
+        ));
+    }
+
+    /**
+     * Display list of assigned maintenance requests
+     */
+    public function requests()
+    {
+        return view('vendors.requests.index');
+    }
+
+    /**
+     * Display a specific maintenance request for vendor's view
+     */
+    public function vendorShow(MaintenanceRequest $maintenanceRequest)
+    {
+        $this->authorize('viewAsVendor', $maintenanceRequest);
+
+        return view('vendors.vendorShow', compact('maintenanceRequest'));
     }
 }

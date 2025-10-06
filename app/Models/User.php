@@ -115,6 +115,13 @@ class User extends Authenticatable
     {
         return $this->role === 'vendor';
     }
+    /**
+     * Get the vendor profile associated with this user (if role is vendor)
+     */
+    public function vendor()
+    {
+        return $this->hasOne(Vendor::class, 'user_id');
+    }
 
     // Relationships
     public function tenantProfile()
