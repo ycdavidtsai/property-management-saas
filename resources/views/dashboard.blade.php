@@ -7,7 +7,6 @@
 
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-
             <!-- Properties & Units -->
             <div class="mb-8">
                 <h3 class="text-lg font-semibold text-gray-900 mb-4">Properties & Units</h3>

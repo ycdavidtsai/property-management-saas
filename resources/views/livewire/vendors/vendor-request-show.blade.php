@@ -12,9 +12,9 @@
         </div>
     @endif
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="flex flex-col lg:flex-row gap-6">
         <!-- Main Content -->
-        <div class="lg:col-span-2 space-y-6">
+        <div class="flex-1 space-y-6">
             <!-- Request Details Card -->
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6">
@@ -177,7 +177,7 @@
         </div>
 
         <!-- Sidebar -->
-        <div class="space-y-6">
+        <div class="w-full lg:w-1/4 space-y-6">
             <!-- Property Info -->
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6">
