@@ -11,7 +11,7 @@
 
             {{-- @if(isset($showLeaseMetrics) && $showLeaseMetrics) --}}
                 <!-- Lease Metrics Section -->
-                <div class="mb-8">
+                <div style="margin: 15px;" class="mb-8">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">Lease Overview</h3>
                     @livewire('dashboard.lease-metrics')
                 </div>

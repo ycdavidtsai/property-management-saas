@@ -1,5 +1,5 @@
 <!-- resources/views/livewire/properties/dashboard.blade.php -->
-<div>
+<div style="margin: 15px;">
         <!-- Properties Grid -->
     <div class="mb-6">
         <div class="flex justify-between items-center mb-4">

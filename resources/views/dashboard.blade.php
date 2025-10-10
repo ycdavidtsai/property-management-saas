@@ -1,11 +1,11 @@
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Dashboard') }}
+            {{ __('Dashboard') }}here
         </h2>
     </x-slot>
 
-    <div class="py-12">
+    <div style="margin: 15px;">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <!-- Properties & Units -->
             <div class="mb-8">
@@ -92,7 +92,6 @@
                         </div>
                     </div>
                 </div>
-            </div>
 
             <!-- Leases -->
             <div class="mb-8">
@@ -311,4 +310,5 @@
 
         </div>
     </div>
+</div>
 </x-app-layout>
