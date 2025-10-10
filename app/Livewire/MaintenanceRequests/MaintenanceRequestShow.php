@@ -84,74 +84,84 @@ class MaintenanceRequestShow extends Component
         $this->resetValidation();
     }
 
-    /**
-     * Assign vendor to the maintenance request
-     */
-    public function assignVendor()
-    {
-        $this->authorize('update', $this->request);
+/**
+ * Assign vendor to the maintenance request
+ */
+public function assignVendor()
+{
+    $this->authorize('update', $this->request);
 
-        $this->validate([
-            'selectedVendorId' => 'required|exists:vendors,id',
-            'assignmentNotes' => 'nullable|string|max:1000',
-        ]);
+    $this->validate([
+        'selectedVendorId' => 'required|exists:vendors,id',
+        'assignmentNotes' => 'nullable|string|max:1000',
+    ]);
 
-        // Get the vendor
-        $vendor = Vendor::where('organization_id', Auth::user()->organization_id)
-            ->findOrFail($this->selectedVendorId);
+    // ✅ NEW: Get vendor and verify it's in organization's "My Vendors" list
+    $orgId = Auth::user()->organization_id;
 
-        $previousVendor = $this->request->vendor;
-        $isReassignment = $this->request->assigned_vendor_id !== null;
-        $isNewAssignment = $this->request->assigned_vendor_id === null;
+    $vendor = Vendor::whereHas('organizations', function($q) use ($orgId) {
+            $q->where('organization_id', $orgId)
+              ->where('organization_vendor.is_active', true);
+        })
+        ->find($this->selectedVendorId);
 
-        // Update the maintenance request
-        $this->request->update([
-            'assigned_vendor_id' => $vendor->id,
-            'assigned_at' => now(),
-            'assigned_by' => Auth::id(),
-            'assignment_notes' => $this->assignmentNotes,
-            'status' => $isNewAssignment && $this->request->status === 'submitted'
-                ? 'assigned'
-                : $this->request->status,
-        ]);
+    if (!$vendor) {
+        session()->flash('error', 'Selected vendor is not available in your vendor list.');
+        return;
+    }
 
-        // Create update record for timeline
-        $updateMessage = $isReassignment
-            ? "Vendor reassigned from {$previousVendor->name} to {$vendor->name}"
-            : "Vendor {$vendor->name} assigned to this request";
+    $previousVendor = $this->request->vendor;
+    $isReassignment = $this->request->assigned_vendor_id !== null;
+    $isNewAssignment = $this->request->assigned_vendor_id === null;
 
-        if ($this->assignmentNotes) {
-            $updateMessage .= "\n\nAssignment Notes: {$this->assignmentNotes}";
-        }
+    // Update the maintenance request
+    $this->request->update([
+        'assigned_vendor_id' => $vendor->id,
+        'assigned_at' => now(),
+        'assigned_by' => Auth::id(),
+        'assignment_notes' => $this->assignmentNotes,
+        'status' => $isNewAssignment && $this->request->status === 'submitted'
+            ? 'assigned'
+            : $this->request->status,
+    ]);
 
+    // Create update record for timeline
+    $updateMessage = $isReassignment
+        ? "Vendor reassigned from {$previousVendor->name} to {$vendor->name}"
+        : "Vendor {$vendor->name} assigned to this request";
+
+    if ($this->assignmentNotes) {
+        $updateMessage .= "\n\nAssignment Notes: {$this->assignmentNotes}";
+    }
+
+    MaintenanceRequestUpdate::create([
+        'maintenance_request_id' => $this->request->id,
+        'user_id' => Auth::id(),
+        'update_type' => 'assignment',
+        'message' => $updateMessage,
+        'is_internal' => false,
+    ]);
+
+    // If status changed, create status change update
+    if ($isNewAssignment && $this->request->status === 'assigned') {
         MaintenanceRequestUpdate::create([
             'maintenance_request_id' => $this->request->id,
             'user_id' => Auth::id(),
-            'update_type' => 'assignment',
-            'message' => $updateMessage,
+            'update_type' => 'status_change',
+            'message' => "Status changed from submitted to assigned",
             'is_internal' => false,
         ]);
-
-        // If status changed, create status change update
-        if ($isNewAssignment && $this->request->status === 'assigned') {
-            MaintenanceRequestUpdate::create([
-                'maintenance_request_id' => $this->request->id,
-                'user_id' => Auth::id(),
-                'update_type' => 'status_change',
-                'message' => "Status changed from submitted to assigned",
-                'is_internal' => false,
-            ]);
-        }
-
-        // Refresh the request to get updated relationships
-        $this->request->refresh();
-
-        // Close modal and show success
-        $this->showAssignModal = false;
-        $this->assignmentNotes = '';
-
-        session()->flash('message', "Vendor successfully assigned to this maintenance request.");
     }
+
+    // Refresh the request to get updated relationships
+    $this->request->refresh();
+
+    // Close modal and show success
+    $this->showAssignModal = false;
+    $this->assignmentNotes = '';
+
+    session()->flash('message', "Vendor successfully assigned to this maintenance request.");
+}
 
     /**
      * Remove vendor assignment
@@ -352,7 +362,7 @@ class MaintenanceRequestShow extends Component
             }
         }
 
-        $updates = $updatesQuery->latest()->paginate(10);
+        $updates = $updatesQuery->latest()->paginate(25);
 
         // Check if user can add internal notes
         $canAddInternalNotes = in_array(Auth::user()->role, ['admin', 'manager', 'landlord']);

@@ -147,7 +147,7 @@
                 <div class="p-6">
                     <h4 class="font-semibold mb-4">Timeline</h4>
                     <div class="space-y-4">
-                        @forelse($updates as $update)
+                        @forelse($updates->reverse() as $update)
                             <div class="border-l-4 border-gray-300 pl-4 py-2">
                                 <div class="flex justify-between items-start mb-1">
                                     <span class="font-medium text-gray-900">{{ $update->user->name }}</span>

@@ -77,7 +77,7 @@ Route::middleware(['auth', 'verified', 'organization'])->group(function () {
     // });
 
     // Vendor Management Routes, note form AI: The /{vendor} route is catching /browse-global and treating "browse-global" as a vendor ID!
-    
+
     Route::prefix('vendors')->name('vendors.')->group(function () {
         Route::get('/', [VendorController::class, 'index'])->name('index');
         Route::get('/create', [VendorController::class, 'create'])->name('create');
@@ -113,7 +113,7 @@ Route::prefix('vendor')->name('vendor.')->middleware(['auth', 'verified'])->grou
         Route::middleware('role:vendor')->group(function () {
             Route::get('/dashboard', [VendorController::class, 'dashboard'])->name('dashboard');
             Route::get('/requests', [VendorController::class, 'requests'])->name('requests.index');
-            Route::get('/requests/{maintenanceRequest}', [VendorController::class, 'show'])->name('requests.show');
+            Route::get('/requests/{maintenanceRequest}', [VendorController::class, 'vendorShow'])->name('requests.show');
 
             // Vendor Profile & Promotion
             Route::get('/profile', [VendorController::class, 'profile'])->name('profile');

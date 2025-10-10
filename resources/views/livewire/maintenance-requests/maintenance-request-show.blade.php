@@ -35,68 +35,74 @@
                         @endif
                     </div>
 
-                    <!-- Vendor Assignment Display -->
-                    @if($request->assigned_vendor_id)
-                        <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center">
-                                    <svg class="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                                    </svg>
-                                    <div>
-                                        <p class="text-sm font-medium text-blue-900">Assigned to Vendor</p>
-                                        <p class="text-lg font-semibold text-blue-700">{{ $request->vendor->name }}</p>
-                                        @if($request->vendor->phone)
-                                            <p class="text-sm text-blue-600">{{ $request->vendor->phone }}</p>
-                                        @endif
-                                        <p class="text-xs text-blue-500 mt-1">
-                                            Assigned {{ $request->assigned_at->diffForHumans() }}
-                                            @if($request->assignedBy)
-                                                by {{ $request->assignedBy->name }}
+                    <!-- Vendor Assignment Display for authorized roles -->
+
+                        @if($request->assigned_vendor_id)
+                            <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center">
+                                        <svg class="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                        </svg>
+                                        <div>
+                                            <p class="text-sm font-medium text-blue-900">Assigned to Vendor</p>
+                                            <p class="text-lg font-semibold text-blue-700">{{ $request->vendor->name }}</p>
+                                            @if($request->vendor->phone)
+                                                <p class="text-sm text-blue-600">{{ $request->vendor->phone }}</p>
                                             @endif
-                                        </p>
+                                            <p class="text-xs text-blue-500 mt-1">
+                                                Assigned {{ $request->assigned_at->diffForHumans() }}
+                                                @if($request->assignedBy)
+                                                    by {{ $request->assignedBy->name }}
+                                                @endif
+                                            </p>
+                                        </div>
                                     </div>
+
+                                    @if(App\Services\RoleService::roleHasPermission(auth()->user()->role, 'maintenance.view') && in_array(auth()->user()->role, ['admin', 'manager', 'landlord']))
+                                        @can('update', $request)
+                                            <div class="flex space-x-2">
+                                                <button
+                                                    wire:click="openAssignModal"
+                                                    class="px-3 py-2 text-sm font-medium text-blue-700 bg-white border border-blue-300 rounded-md hover:bg-blue-50"
+                                                >
+                                                    Reassign
+                                                </button>
+                                                <button
+                                                    wire:click="unassignVendor"
+                                                    onclick="return confirm('Are you sure you want to unassign this vendor?')"
+                                                    class="px-3 py-2 text-sm font-medium text-red-700 bg-white border border-red-300 rounded-md hover:bg-red-50"
+                                                >
+                                                    Unassign
+                                                </button>
+                                            </div>
+                                        @endcan
+                                    @endif
                                 </div>
+                                @if($request->assignment_notes)
+                                    <div class="mt-3 pt-3 border-t border-blue-200">
+                                        <p class="text-sm font-medium text-blue-900">Assignment Notes:</p>
+                                        <p class="text-sm text-blue-700 mt-1">{{ $request->assignment_notes }}</p>
+                                    </div>
+                                @endif
+                            </div>
+                        @else
+                            @if(App\Services\RoleService::roleHasPermission(auth()->user()->role, 'maintenance.view') && in_array(auth()->user()->role, ['admin', 'manager', 'landlord']))
                                 @can('update', $request)
-                                    <div class="flex space-x-2">
+                                    <div class="mt-4">
                                         <button
                                             wire:click="openAssignModal"
-                                            class="px-3 py-2 text-sm font-medium text-blue-700 bg-white border border-blue-300 rounded-md hover:bg-blue-50"
+                                            class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-sm text-white hover:bg-blue-700"
                                         >
-                                            Reassign
-                                        </button>
-                                        <button
-                                            wire:click="unassignVendor"
-                                            onclick="return confirm('Are you sure you want to unassign this vendor?')"
-                                            class="px-3 py-2 text-sm font-medium text-red-700 bg-white border border-red-300 rounded-md hover:bg-red-50"
-                                        >
-                                            Unassign
+                                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                            </svg>
+                                            Assign Vendor
                                         </button>
                                     </div>
                                 @endcan
-                            </div>
-                            @if($request->assignment_notes)
-                                <div class="mt-3 pt-3 border-t border-blue-200">
-                                    <p class="text-sm font-medium text-blue-900">Assignment Notes:</p>
-                                    <p class="text-sm text-blue-700 mt-1">{{ $request->assignment_notes }}</p>
-                                </div>
                             @endif
-                        </div>
-                    @else
-                        @can('update', $request)
-                            <div class="mt-4">
-                                <button
-                                    wire:click="openAssignModal"
-                                    class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-sm text-white hover:bg-blue-700"
-                                >
-                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                                    </svg>
-                                    Assign Vendor
-                                </button>
-                            </div>
-                        @endcan
-                    @endif
+                        @endif
                 </div>
             </div>
         </div>
@@ -301,7 +307,7 @@
                     <!-- Timeline -->
                     @if($updates->count() > 0)
                         <div class="space-y-4">
-                            @foreach($updates as $update)
+                            @foreach($updates->reverse() as $update)
                                 <div class="flex space-x-3">
                                     <div class="flex-shrink-0">
                                         <div class="h-10 w-10 rounded-full bg-gray-400 flex items-center justify-center">

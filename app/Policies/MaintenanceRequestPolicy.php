@@ -101,10 +101,10 @@ class MaintenanceRequestPolicy
             return false;
         }
 
-        // Must be in same organization
-        if ($user->organization_id !== $maintenanceRequest->organization_id) {
-            return false;
-        }
+        // Must be in same organization, this is no longer strictly necessary
+        // if ($user->organization_id !== $maintenanceRequest->organization_id) {
+        //     return false;
+        // }
 
         // Request must be assigned to this vendor
         return $maintenanceRequest->assigned_vendor_id === $user->vendor->id;

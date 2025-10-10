@@ -61,7 +61,7 @@
 @endif
 
 {{-- Maintenance --}}
-@if(App\Services\RoleService::roleHasPermission(auth()->user()->role, 'maintenance.view') && in_array(auth()->user()->role, ['admin', 'manager', 'landlord']))
+@if(App\Services\RoleService::roleHasPermission(auth()->user()->role, 'maintenance.view') && in_array(auth()->user()->role, ['admin', 'manager', 'landlord', 'tenant']))
     <a href="{{ route('maintenance-requests.index') }}"
        class="group flex items-center px-2 py-2 text-sm font-medium rounded-md {{ request()->routeIs('maintenance-requests.*') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }}">
         <svg class="mr-3 flex-shrink-0 h-6 w-6 {{ request()->routeIs('maintenance-requests.*') ? 'text-indigo-500' : 'text-gray-400 group-hover:text-gray-500' }}"
