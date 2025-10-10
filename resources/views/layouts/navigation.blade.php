@@ -86,11 +86,26 @@
                     </div>
 
                     {{-- Organization info --}}
-                    @if(auth()->user()->role !== 'tenant')
+                    @if(auth()->user()->role !== 'tenant' && auth()->user()->organization)
                         <div class="mt-4 px-4">
                             <div class="bg-gray-50 rounded-lg p-3">
                                 <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Organization</div>
                                 <div class="mt-1 text-sm font-medium text-gray-900">{{ auth()->user()->organization->name }}</div>
+                                <div class="mt-1">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        {{ App\Services\RoleService::getRoleDisplayName(auth()->user()->role) }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+
+                    {{-- Organization info for Vendor--}}
+                    @if(auth()->user()->role === 'vendor')
+                        <div class="mt-4 px-4">
+                            <div class="bg-gray-50 rounded-lg p-3">
+                                <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Organization</div>
+                                <div class="mt-1 text-sm font-medium text-gray-900">{{ auth()->user()->vendor->name }} - Vendor Portal</div>
                                 <div class="mt-1">
                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                         {{ App\Services\RoleService::getRoleDisplayName(auth()->user()->role) }}
@@ -115,6 +130,30 @@
                         </div>
                     @endif
 
+{{-- vendor portal , added by DT--}}
+@if(auth()->user()->role === 'vendor')
+    <x-nav-link :href="route('vendor.dashboard')" :active="request()->routeIs('vendor.dashboard')">
+        {{ __('Dashboard') }}
+    </x-nav-link>
+    <x-nav-link :href="route('vendor.profile')" :active="request()->routeIs('vendor.profile')">
+        {{ __('My Profile') }}
+    </x-nav-link>
+@endif
+
+{{-- Add Navigation for Admin --}}
+@if(auth()->user()->role === 'admin')
+    <x-nav-link :href="route('admin.promotion-requests')" :active="request()->routeIs('admin.promotion-requests')">
+        {{ __('Vendor Promotions') }}
+        @php
+            $pendingCount = \App\Models\VendorPromotionRequest::where('status', 'pending')->count();
+        @endphp
+        @if($pendingCount > 0)
+            <span class="ml-2 px-2 py-0.5 text-xs font-bold rounded-full bg-red-500 text-white">
+                {{ $pendingCount }}
+            </span>
+        @endif
+    </x-nav-link>
+@endif
 
                     {{-- Navigation items --}}
                     <nav class="mt-5 flex-1 px-2 space-y-1">

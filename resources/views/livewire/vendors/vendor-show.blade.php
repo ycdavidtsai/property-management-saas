@@ -174,11 +174,12 @@
                     </div>
 
                     <!-- Specialties -->
-                    @if($vendor->specialties && count(json_decode($vendor->specialties, true) ?? []) > 0)
+                    {{-- @if($vendor->specialties && count(json_decode($vendor->specialties, true) ?? []) > 0) --}}
+                    @if(!empty($vendor->specialties) && is_array($vendor->specialties))
                         <div class="border-t border-gray-200 pt-6">
                             <h4 class="text-lg font-semibold text-gray-900 mb-4">Specialties</h4>
                             <div class="flex flex-wrap gap-2">
-                                @foreach(json_decode($vendor->specialties, true) ?? [] as $specialty)
+                                @foreach($vendor->specialties as $specialty)
                                     <span class="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full">
                                         {{ $specialty }}
                                     </span>

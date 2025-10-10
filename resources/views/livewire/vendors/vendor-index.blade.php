@@ -1,5 +1,27 @@
 <div>
     <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+        <!-- Header with Info -->
+        <div class="p-6 border-b border-gray-200 bg-gray-50">
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">My Vendors</h3>
+                    <p class="text-sm text-gray-600 mt-1">
+                        Vendors you've created (Private) or added from the global directory
+                    </p>
+                </div>
+                <div class="flex gap-2">
+                    <a href="{{ route('vendors.create') }}"
+                        class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                        + Create Private Vendor
+                    </a>
+                    <a href="{{ route('vendors.browse-global') }}"
+                        class="inline-flex items-center px-4 py-2 border border-blue-600 shadow-sm text-sm font-medium rounded-md text-blue-600 bg-white hover:bg-blue-50">
+                        🌐 Browse Global Directory
+                    </a>
+                </div>
+            </div>
+        </div>
+
         <!-- Search and Filters -->
         <div class="p-6 border-b border-gray-200">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -43,14 +65,6 @@
                         <option value="all">All Vendors</option>
                     </select>
                 </div>
-
-                <!-- Add Vendor Button -->
-                <div class="mt-6">
-                    <a href="{{ route('vendors.create') }}"
-                        class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
-                        Create New Vendor
-                    </a>
-                </div>
             </div>
         </div>
 
@@ -85,7 +99,7 @@
                 <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($vendors as $vendor)
                         <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            {{-- <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="flex items-center">
                                     <div class="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
                                         <span class="text-blue-600 font-medium text-sm">
@@ -95,6 +109,39 @@
                                     <div class="ml-4">
                                         <div class="text-sm font-medium text-gray-900">
                                             {{ $vendor->name }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </td> --}}
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                        <span class="text-blue-600 font-medium text-sm">
+                                            {{ strtoupper(substr($vendor->name, 0, 2)) }}
+                                        </span>
+                                    </div>
+                                    <div class="ml-4">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-sm font-medium text-gray-900">
+                                                {{ $vendor->name }}
+                                            </span>
+                                            <!-- Global Badge -->
+                                            @if($vendor->isGlobal())
+                                                <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+                                                    🌐 Global
+                                                </span>
+                                            @else
+                                                <!-- Private Badge -->
+                                                <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-800 border border-gray-300">
+                                                    🔒 Private
+                                                </span>
+                                                <!-- My Vendor Badge if current org created it -->
+                                                @if($vendor->isOwnedBy(auth()->user()->organization_id))
+                                                    <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                                        My Vendor
+                                                    </span>
+                                                @endif
+                                            @endif
                                         </div>
                                     </div>
                                 </div>
@@ -151,11 +198,22 @@
                                     title="View Details">
                                         View
                                     </a>
-                                    <a href="{{ route('vendors.edit', $vendor) }}"
+                                    {{-- <a href="{{ route('vendors.edit', $vendor) }}"
                                     class="text-indigo-600 hover:text-indigo-900"
                                     title="Edit Vendor">
                                         Edit
-                                    </a>
+                                    </a> --}}
+                                    @if($vendor->canBeEditedBy(auth()->user()))
+                                        <a href="{{ route('vendors.edit', $vendor) }}"
+                                        class="text-indigo-600 hover:text-indigo-900"
+                                        title="Edit Vendor">
+                                            Edit
+                                        </a>
+                                    @else
+                                        <span class="text-gray-400" title="Cannot edit this vendor">
+                                            Edit
+                                        </span>
+                                    @endif
 
                                     @can('delete', $vendor)
                                         @if($vendor->maintenance_requests_count == 0)

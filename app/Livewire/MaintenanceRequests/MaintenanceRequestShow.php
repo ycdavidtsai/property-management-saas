@@ -326,11 +326,19 @@ class MaintenanceRequestShow extends Component
     public function render()
     {
         // Get active vendors for assignment dropdown
-        $activeVendors = Vendor::where('organization_id', Auth::user()->organization_id)
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get();
+        // $activeVendors = Vendor::where('created_by_organization_id', Auth::user()->organization_id)
+        //     ->where('is_active', true)
+        //     ->orderBy('name')
+        //     ->get();
 
+        $orgId = Auth::user()->organization_id;
+        $activeVendors = Vendor::whereHas('organizations', function($q) use ($orgId) {
+            $q->where('organization_id', $orgId)
+            ->where('organization_vendor.is_active', true);  // ✅ CORRECT - use table.column
+        })
+        ->orderBy('vendor_type', 'desc')
+        ->orderBy('name')
+        ->get();
         // Get updates/timeline with filtering
         $updatesQuery = $this->request->updates()->with('user');
 

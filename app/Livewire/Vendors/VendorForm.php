@@ -4,10 +4,12 @@ namespace App\Livewire\Vendors;
 
 use App\Models\Vendor;
 use App\Models\User;
+use App\Models\Organization;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;  // ➕ ADD THIS LINE
 use Livewire\Component;
 
 class VendorForm extends Component
@@ -24,6 +26,9 @@ class VendorForm extends Component
     public $notes;
     public $is_active = true;
     public $create_user_account = true; // For new vendors
+    public $vendor_type = 'private'; // Always private for non-admins
+    public $is_admin = false;
+    public $selected_organizations = [];
 
     // Available business types
     public $businessTypeOptions = [
@@ -53,23 +58,25 @@ class VendorForm extends Component
         'Inspections',
     ];
 
-    protected function rules()
-    {
-        return [
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
-            'phone' => 'nullable|string|max:20',
-            'business_type' => 'required|string',
-            'specialties' => 'nullable|array',
-            'hourly_rate' => 'nullable|numeric|min:0|max:99999.99',
-            'notes' => 'nullable|string|max:1000',
-            'is_active' => 'boolean',
-            'create_user_account' => 'boolean',
-        ];
-    }
+    // protected function rules()
+    // {
+    //     return [
+    //         'name' => 'required|string|max:255',
+    //         'email' => 'required|email|max:255',
+    //         'phone' => 'nullable|string|max:20',
+    //         'business_type' => 'required|string',
+    //         'specialties' => 'nullable|array',
+    //         'hourly_rate' => 'nullable|numeric|min:0|max:99999.99',
+    //         'notes' => 'nullable|string|max:1000',
+    //         'is_active' => 'boolean',
+    //         'create_user_account' => 'boolean',
+    //     ];
+    // }
 
     public function mount(?Vendor $vendor = null)
     {
+        $this->is_admin = Auth::user()->role === 'admin';
+
         if ($vendor && $vendor->exists) {
             $this->authorize('update', $vendor);
             $this->vendor = $vendor;
@@ -84,24 +91,54 @@ class VendorForm extends Component
                 'hourly_rate' => $vendor->hourly_rate,
                 'notes' => $vendor->notes,
                 'is_active' => $vendor->is_active,
+                'vendor_type' => $vendor->vendor_type,
+                //'selected_organizations' => $vendor->organizations->pluck('id')->toArray(),
+                'selected_organizations' => $vendor->organizations ? $vendor->organizations->pluck('id')->toArray() : [],
             ]);
         } else {
             $this->authorize('create', Vendor::class);
+
+            // Default vendor type based on user role
+            $this->vendor_type = $this->is_admin ? 'global' : 'private';
+
+            // Default to current user's organization for private vendors
+            if (!$this->is_admin) {
+                $this->selected_organizations = [Auth::user()->organization_id];
+            }
         }
+    }
+
+    protected function rules()
+    {
+        return [
+            'name' => 'required|string|max:255',
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                // Force unique email globally
+                Rule::unique('vendors', 'email')->ignore($this->vendor?->id),
+            ],
+            'phone' => 'nullable|string|max:20',
+            'business_type' => 'required|string',
+            'specialties' => 'nullable|array',
+            'hourly_rate' => 'nullable|numeric|min:0|max:99999.99',
+            'notes' => 'nullable|string|max:1000',
+            'is_active' => 'boolean',
+            'create_user_account' => 'boolean',
+            'vendor_type' => 'required|in:global,private',
+            'selected_organizations' => 'required_if:vendor_type,private|array|min:1',
+            'selected_organizations.*' => 'exists:organizations,id',
+        ];
     }
 
     public function save()
     {
         $this->validate();
 
-        // Check if email is already used by another vendor in this organization
-        $existingVendor = Vendor::where('organization_id', Auth::user()->organization_id)
-            ->where('email', $this->email)
-            ->when($this->vendor, fn($q) => $q->where('id', '!=', $this->vendor->id))
-            ->first();
-
-        if ($existingVendor) {
-            $this->addError('email', 'A vendor with this email already exists in your organization.');
+        // Validate user permissions
+        if ($this->vendor_type === 'global' && !$this->is_admin) {
+            $this->addError('vendor_type', 'Only administrators can create global vendors.');
             return;
         }
 
@@ -110,17 +147,32 @@ class VendorForm extends Component
             'email' => $this->email,
             'phone' => $this->phone,
             'business_type' => $this->business_type,
-            'specialties' => json_encode($this->specialties),
+            'specialties' => $this->specialties,
             'hourly_rate' => $this->hourly_rate,
             'notes' => $this->notes,
             'is_active' => $this->is_active,
-            'organization_id' => Auth::user()->organization_id,
+            'vendor_type' => $this->vendor_type,
+            'created_by_organization_id' => $this->vendor_type === 'private'
+                ? Auth::user()->organization_id
+                : null,
         ];
 
         if ($this->vendor && $this->vendor->exists) {
             // Update existing vendor
             $this->authorize('update', $this->vendor);
+
+            // Only allow editing if user has permission
+            if (!$this->vendor->canBeEditedBy(Auth::user())) {
+                session()->flash('error', 'You do not have permission to edit this vendor.');
+                return redirect()->route('vendors.index');
+            }
+
             $this->vendor->update($data);
+
+            // Sync organizations (only for private vendors)
+            if ($this->vendor->isPrivate()) {
+                $this->vendor->organizations()->sync($this->selected_organizations);
+            }
 
             // Update linked user account if exists
             if ($this->vendor->user) {
@@ -135,6 +187,14 @@ class VendorForm extends Component
             // Create new vendor
             $this->authorize('create', Vendor::class);
             $this->vendor = Vendor::create($data);
+
+            // Attach organizations (only for private vendors or if admin selected orgs)
+            if ($this->vendor_type === 'private') {
+                $this->vendor->organizations()->attach($this->selected_organizations);
+            } elseif ($this->vendor_type === 'global' && !empty($this->selected_organizations)) {
+                // For global vendors, admin can optionally pre-add them to organizations
+                $this->vendor->organizations()->attach($this->selected_organizations);
+            }
 
             // Create user account if requested
             if ($this->create_user_account) {
@@ -199,6 +259,14 @@ class VendorForm extends Component
 
     public function render()
     {
-        return view('livewire.vendors.vendor-form');
+        // Get all organizations (for admin) or just current user's organization
+        $user = Auth::user();
+        $availableOrganizations = $user->role === 'admin'
+            ? Organization::orderBy('name')->get()
+            : Organization::where('id', $user->organization_id)->get();
+
+        return view('livewire.vendors.vendor-form', [
+            'availableOrganizations' => $availableOrganizations,
+        ]);
     }
 }

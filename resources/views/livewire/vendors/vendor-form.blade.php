@@ -75,6 +75,89 @@
             @error('business_type') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
         </div>
 
+        <!-- Vendor Type (Admin Only) -->
+        @if($is_admin)
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Vendor Type <span class="text-red-500">*</span>
+                </label>
+                <div class="space-y-2">
+                    <label class="flex items-center">
+                        <input
+                            type="radio"
+                            wire:model.live="vendor_type"
+                            value="global"
+                            class="rounded-full border-gray-300 text-blue-600 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        >
+                        <span class="ml-2">
+                            <span class="font-medium text-gray-900">Global Vendor</span>
+                            <span class="text-sm text-gray-600 block">Available to all organizations in the platform</span>
+                        </span>
+                    </label>
+                    <label class="flex items-center">
+                        <input
+                            type="radio"
+                            wire:model.live="vendor_type"
+                            value="private"
+                            class="rounded-full border-gray-300 text-blue-600 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        >
+                        <span class="ml-2">
+                            <span class="font-medium text-gray-900">Private Vendor</span>
+                            <span class="text-sm text-gray-600 block">Only visible to selected organizations</span>
+                        </span>
+                    </label>
+                </div>
+                @error('vendor_type') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+            </div>
+        @else
+            <!-- Non-admin: Show info that vendor will be private -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div class="flex">
+                    <svg class="h-5 w-5 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                    </svg>
+                    <div>
+                        <p class="text-sm font-medium text-blue-900">Private Vendor</p>
+                        <p class="text-sm text-blue-700 mt-1">
+                            This vendor will be private to your organization. The vendor can request to be listed globally after creation.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        @endif
+
+        <!-- Organizations (Show for private vendors or admin creating any type) -->
+        @if($vendor_type === 'private' || $is_admin)
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Organizations <span class="text-red-500">*</span>
+                </label>
+                @if($vendor_type === 'global')
+                    <p class="text-sm text-gray-600 mb-2">
+                        Optionally pre-add this global vendor to specific organizations. Organizations can still add them later.
+                    </p>
+                @else
+                    <p class="text-sm text-gray-600 mb-2">
+                        Select which organizations this private vendor will work for.
+                    </p>
+                @endif
+                <div class="space-y-2 max-h-48 overflow-y-auto border border-gray-300 rounded-md p-3">
+                    @foreach($availableOrganizations as $organization)
+                        <label class="flex items-center">
+                            <input
+                                type="checkbox"
+                                wire:model="selected_organizations"
+                                value="{{ $organization->id }}"
+                                class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                            >
+                            <span class="ml-2 text-sm text-gray-700">{{ $organization->name }}</span>
+                        </label>
+                    @endforeach
+                </div>
+                @error('selected_organizations') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+            </div>
+        @endif
+
         <!-- Specialties -->
         <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">

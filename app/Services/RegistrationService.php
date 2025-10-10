@@ -26,7 +26,7 @@ class RegistrationService
                 'email' => $data['email'],
                 'password' => Hash::make($data['password']),
                 'organization_id' => $organization->id,
-                'role' => 'admin',
+                'role' => 'landlord',
             ]);
 
             return $user;
