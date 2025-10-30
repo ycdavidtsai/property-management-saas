@@ -150,7 +150,7 @@ class VendorRequestShow extends Component
             ->with('user')
             ->where('is_internal', false)
             ->orderBy('created_at', 'desc')
-            ->get();
+            ->paginate(8);
 
         return view('livewire.vendors.vendor-request-show', [
             'updates' => $updates,

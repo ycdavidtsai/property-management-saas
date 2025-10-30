@@ -85,7 +85,8 @@ class MaintenanceRequest extends Model
 
     public function updates(): HasMany
     {
-        return $this->hasMany(MaintenanceRequestUpdate::class)->orderBy('created_at');
+        //return $this->hasMany(MaintenanceRequestUpdate::class)->orderBy('created_at');
+        return $this->hasMany(MaintenanceRequestUpdate::class);
     }
 
     public function getPriorityColorAttribute(): string

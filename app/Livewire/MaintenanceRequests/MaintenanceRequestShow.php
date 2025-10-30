@@ -354,15 +354,20 @@ public function assignVendor()
 
         // Tenants only see public updates
         if (Auth::user()->role === 'tenant') {
-            $updatesQuery->public();
+            $updatesQuery->where('is_internal', false);
         } else {
             // Managers see all by default, but can toggle
             if (!$this->showInternalUpdates) {
-                $updatesQuery->public();
+                $updatesQuery->where('is_internal', false);
             }
         }
 
-        $updates = $updatesQuery->latest()->paginate(25);
+        //$updates = $updatesQuery->latest()->paginate(25);
+        // ✅ EXPLICIT ORDER: Newest first
+        $updates = $updatesQuery
+            ->orderBy('created_at', 'desc')
+            ->orderBy('id', 'desc')
+            ->paginate(8);
 
         // Check if user can add internal notes
         $canAddInternalNotes = in_array(Auth::user()->role, ['admin', 'manager', 'landlord']);

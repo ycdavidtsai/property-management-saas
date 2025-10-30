@@ -243,7 +243,10 @@
                                 <div class="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors">
                                     <div class="flex justify-between items-start">
                                         <div class="flex-1">
-                                            <h5 class="text-lg font-medium text-gray-900">{{ $request->title }}</h5>
+                                            <a href="{{ route('maintenance-requests.show', $request) }}"
+                                               class="text-blue-600 hover:text-blue-900 text-sm font-medium">
+                                               <h5 class="text-lg font-medium ">{{ $request->title }}</h5>
+                                            </a>
                                             <p class="mt-1 text-sm text-gray-600">{{ Str::limit($request->description, 150) }}</p>
                                             <div class="mt-2 flex items-center space-x-4 text-sm text-gray-500">
                                                 <span>{{ $request->property->name }}</span>

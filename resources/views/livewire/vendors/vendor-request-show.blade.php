@@ -147,7 +147,7 @@
                 <div class="p-6">
                     <h4 class="font-semibold mb-4">Timeline</h4>
                     <div class="space-y-4">
-                        @forelse($updates->reverse() as $update)
+                        @forelse($updates as $update)
                             <div class="border-l-4 border-gray-300 pl-4 py-2">
                                 <div class="flex justify-between items-start mb-1">
                                     <span class="font-medium text-gray-900">{{ $update->user->name }}</span>
@@ -172,6 +172,12 @@
                             <p class="text-gray-500 text-center py-4">No updates yet.</p>
                         @endforelse
                     </div>
+
+                    @if($updates->hasPages())
+                            <div class="mt-6">
+                                {{ $updates->links() }}
+                            </div>
+                    @endif
                 </div>
             </div>
         </div>
@@ -196,6 +202,10 @@
                                 <dt class="text-sm font-medium text-gray-500">Unit</dt>
                                 <dd class="text-sm text-gray-900">{{ $maintenanceRequest->unit->unit_number }}</dd>
                             </div>
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Tenant</dt>
+                                <dd class="text-sm text-gray-900">Name: {{ $maintenanceRequest->tenant->name }}<br>Phone: {{ $maintenanceRequest->tenant->phone }}</dd>
+                            </div>
                         @endif
                         <div>
                             <dt class="text-sm font-medium text-gray-500">Category</dt>
@@ -213,7 +223,8 @@
                         <div class="space-y-2">
                             <p class="text-sm text-gray-500">Assigned by</p>
                             <p class="text-sm font-medium text-gray-900">{{ $maintenanceRequest->assignedBy->name }}</p>
-                            <p class="text-sm text-gray-600">{{ $maintenanceRequest->assignedBy->email }}</p>
+                            <p class="text-sm text-gray-600">Phone: {{ $maintenanceRequest->assignedBy->phone }}</p>
+                            <p class="text-sm text-gray-600">Email: {{ $maintenanceRequest->assignedBy->email }}</p>
                         </div>
                     @endif
                 </div>

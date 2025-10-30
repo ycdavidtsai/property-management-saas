@@ -307,7 +307,7 @@
                     <!-- Timeline -->
                     @if($updates->count() > 0)
                         <div class="space-y-4">
-                            @foreach($updates->reverse() as $update)
+                            @foreach($updates as $update)
                                 <div class="flex space-x-3">
                                     <div class="flex-shrink-0">
                                         <div class="h-10 w-10 rounded-full bg-gray-400 flex items-center justify-center">
