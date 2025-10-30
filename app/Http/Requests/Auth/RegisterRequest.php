@@ -20,6 +20,7 @@ class RegisterRequest extends FormRequest
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'organization_name' => ['required', 'string', 'max:255'],
+            'phone' => ['nullable','string','max:20'], // add this for new registration field
         ];
     }
 

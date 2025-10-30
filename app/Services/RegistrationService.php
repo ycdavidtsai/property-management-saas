@@ -20,10 +20,11 @@ class RegistrationService
                 'trial_ends_at' => now()->addDays(14),
             ]);
 
-            // Create admin user
+            // Create landlord user
             $user = User::create([
                 'name' => $data['name'],
                 'email' => $data['email'],
+                'phone' => $data['phone'] ?? null, // ensure phone saved
                 'password' => Hash::make($data['password']),
                 'organization_id' => $organization->id,
                 'role' => 'landlord',

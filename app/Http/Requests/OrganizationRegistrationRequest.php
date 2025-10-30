@@ -19,6 +19,7 @@ class OrganizationRegistrationRequest extends FormRequest
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password' => ['required', 'confirmed', Password::defaults()],
             'organization_name' => ['required', 'string', 'max:255'],
+            'phone' => ['nullable','string','max:20'], // added
         ];
     }
 }
