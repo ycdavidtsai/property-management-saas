@@ -15,11 +15,11 @@ class VendorRequestShow extends Component
 
     public MaintenanceRequest $maintenanceRequest;
     public $message = '';
-    public $photos = [];
+    public $photos = [];              // ← Already good
     public $actualCost = null;
     public $showCompleteModal = false;
     public $completionNotes = '';
-    public $completionPhotos = [];
+    public $completionPhotos = [];    // ← Already good
 
     protected $rules = [
         'message' => 'required|string|max:1000',
@@ -33,6 +33,10 @@ class VendorRequestShow extends Component
     {
         $this->authorize('viewAsVendor', $maintenanceRequest);
         $this->maintenanceRequest = $maintenanceRequest;
+
+        // ✅ ADD THESE to ensure arrays are initialized
+        $this->photos = [];
+        $this->completionPhotos = [];
     }
 
     public function addUpdate()
@@ -43,7 +47,7 @@ class VendorRequestShow extends Component
         ]);
 
         $photoUrls = [];
-        if ($this->photos) {
+        if ($this->photos && is_array($this->photos)) {  // ← Added is_array check
             foreach ($this->photos as $photo) {
                 $path = $photo->store('maintenance-updates', 'public');
                 $photoUrls[] = $path;
@@ -55,53 +59,16 @@ class VendorRequestShow extends Component
             'user_id' => Auth::id(),
             'update_type' => 'comment',
             'message' => $this->message,
-            'is_internal' => false, // Vendor updates are always public
+            'is_internal' => false,
             'photos' => $photoUrls,
         ]);
 
         $this->reset(['message', 'photos']);
+
+        // ✅ Re-initialize after reset
+        $this->photos = [];
+
         session()->flash('success', 'Update added successfully.');
-
-        // Refresh the request to get updated timeline
-        $this->maintenanceRequest->refresh();
-    }
-
-    public function updateStatus($newStatus)
-    {
-        $this->authorize('updateStatus', $this->maintenanceRequest);
-
-        $allowedTransitions = [
-            'assigned' => ['in_progress'],
-            'in_progress' => ['completed'],
-            'completed' => [], // Cannot change from completed
-        ];
-
-        $currentStatus = $this->maintenanceRequest->status;
-
-        if (!in_array($newStatus, $allowedTransitions[$currentStatus] ?? [])) {
-            session()->flash('error', 'Invalid status transition.');
-            return;
-        }
-
-        // If transitioning to completed, show modal for completion details
-        if ($newStatus === 'completed') {
-            $this->showCompleteModal = true;
-            return;
-        }
-
-        // Update status
-        $this->maintenanceRequest->update(['status' => $newStatus]);
-
-        // Create timeline entry
-        MaintenanceRequestUpdate::create([
-            'maintenance_request_id' => $this->maintenanceRequest->id,
-            'user_id' => Auth::id(),
-            'update_type' => 'status_change',
-            'message' => "Status changed from {$currentStatus} to {$newStatus}",
-            'is_internal' => false,
-        ]);
-
-        session()->flash('success', 'Status updated successfully.');
         $this->maintenanceRequest->refresh();
     }
 
@@ -114,21 +81,19 @@ class VendorRequestShow extends Component
         ]);
 
         $photoUrls = [];
-        if ($this->completionPhotos) {
+        if ($this->completionPhotos && is_array($this->completionPhotos)) {  // ← Added is_array check
             foreach ($this->completionPhotos as $photo) {
                 $path = $photo->store('maintenance-updates', 'public');
                 $photoUrls[] = $path;
             }
         }
 
-        // Update request
         $this->maintenanceRequest->update([
             'status' => 'completed',
             'actual_cost' => $this->actualCost,
             'completed_at' => now(),
         ]);
 
-        // Create completion timeline entry
         MaintenanceRequestUpdate::create([
             'maintenance_request_id' => $this->maintenanceRequest->id,
             'user_id' => Auth::id(),
@@ -139,13 +104,16 @@ class VendorRequestShow extends Component
         ]);
 
         $this->reset(['showCompleteModal', 'completionNotes', 'actualCost', 'completionPhotos']);
+
+        // ✅ Re-initialize after reset
+        $this->completionPhotos = [];
+
         session()->flash('success', 'Work marked as completed.');
         $this->maintenanceRequest->refresh();
     }
 
     public function render()
     {
-        // Load public updates only (not internal notes)
         $updates = $this->maintenanceRequest->updates()
             ->with('user')
             ->where('is_internal', false)
