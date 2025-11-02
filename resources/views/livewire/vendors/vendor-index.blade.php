@@ -5,7 +5,7 @@
         <div class="p-6 border-b border-gray-200 bg-gray-50">
             <div class="flex justify-between items-center mb-4">
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900">My Vendors</h3>
+                    <h3 class="text-lg font-semibold text-gray-900">My Vendors..</h3>
                     <p class="text-sm text-gray-600 mt-1">
                         Vendors you've created (Private) or added from the global directory
                     </p>
