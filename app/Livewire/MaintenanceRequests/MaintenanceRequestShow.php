@@ -43,7 +43,13 @@ class MaintenanceRequestShow extends Component
 
     public function mount(MaintenanceRequest $request)
     {
-        $this->authorize('view', $request);
+        // $this->authorize('view', $request);
+        // Allow admins to view any maintenance request.
+        // Non-admin users still go through policy authorization.
+        if (Auth::user()->role !== 'admin') {
+            $this->authorize('view', $request);
+        }
+        
         $this->request = $request;
 
         // Pre-select current vendor if assigned

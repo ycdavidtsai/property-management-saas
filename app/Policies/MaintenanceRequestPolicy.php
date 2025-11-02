@@ -16,6 +16,16 @@ class MaintenanceRequestPolicy
     }
 
     /**
+     * Grant all abilities to admin users.
+     */
+    public function before(User $user, $ability)
+    {
+        if ($user->role === 'admin') {
+            return true;
+        }
+    }
+
+    /**
      * Determine if the user can view any maintenance requests
      */
     public function viewAny(User $user): bool
