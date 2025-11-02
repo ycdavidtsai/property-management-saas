@@ -1,5 +1,5 @@
 <x-app-layout>
-    <x-slot name="header">
+    {{-- <x-slot name="header">
         <div class="flex items-center justify-between">
             <div class="flex items-center">
                 <a href="{{ route('maintenance-requests.index') }}" class="mr-4 text-gray-600 hover:text-gray-900">
@@ -21,9 +21,10 @@
                 </a>
             @endcan
         </div>
-    </x-slot>
+    </x-slot> --}}
 
     <div class="py-12">
+        
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             @if (session('message'))
                 <div class="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">

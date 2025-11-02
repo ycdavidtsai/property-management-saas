@@ -1,3 +1,4 @@
+{{-- This is Landlord view Vendors detail page --}}
 <div>
     <!-- Vendor Header Card -->
     <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">

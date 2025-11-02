@@ -1,3 +1,4 @@
+{{-- This is Landlord view Vendors index page --}}
 <div>
     <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
         <!-- Header with Info -->

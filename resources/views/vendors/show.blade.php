@@ -1,5 +1,5 @@
 <x-app-layout>
-    <x-slot name="header">
+    {{-- <x-slot name="header">
         <div class="flex items-center justify-between">
             <div class="flex items-center">
                 <a href="{{ route('vendors.index') }}" class="mr-4 text-gray-600 hover:text-gray-900">
@@ -18,7 +18,7 @@
                 Edit Vendor
             </a>
         </div>
-    </x-slot>
+    </x-slot> --}}
 
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">

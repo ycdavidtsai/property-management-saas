@@ -1,6 +1,6 @@
 <div style="margin: 15px;">
     <div>
-        <h3 class="text-lg font-semibold text-gray-900">Maintenance Requests..</h3><br>
+        <h3 class="text-lg font-semibold text-gray-900">Maintenance Requests</h3><br>
     </div>
 
     <!-- Search and Filters -->

@@ -1,5 +1,5 @@
 <x-app-layout>
-    <x-slot name="header">
+    {{-- <x-slot name="header">
         <div class="flex items-center justify-between">
             <div class="flex items-center">
                 <a href="{{ route('vendors.show', $vendor) }}" class="mr-4 text-gray-600 hover:text-gray-900">
@@ -12,7 +12,7 @@
                 </h2>
             </div>
         </div>
-    </x-slot>
+    </x-slot> --}}
 
     <div class="py-12">
         <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">

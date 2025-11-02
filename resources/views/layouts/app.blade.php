@@ -17,6 +17,7 @@
         @livewireStyles
     </head>
     <body class="font-sans antialiased">
+
         <div class="min-h-screen bg-gray-100">
             {{-- Sidebar Navigation --}}
             @include('layouts.navigation')
@@ -88,5 +89,6 @@
                 </div>
             </div>
         @endif
+
     </body>
 </html>

@@ -130,15 +130,15 @@
                         </div>
                     @endif
 
-{{-- vendor portal , added by DT--}}
-@if(auth()->user()->role === 'vendor')
+{{-- vendor portal , added by DT, repeated, add this to navigation-items --}}
+{{-- @if(auth()->user()->role === 'vendor')
     <x-nav-link :href="route('vendor.dashboard')" :active="request()->routeIs('vendor.dashboard')">
         {{ __('Dashboard') }}
     </x-nav-link>
     <x-nav-link :href="route('vendor.profile')" :active="request()->routeIs('vendor.profile')">
         {{ __('My Profile') }}
     </x-nav-link>
-@endif
+@endif --}}
 
 {{-- Add Navigation for Admin --}}
 @if(auth()->user()->role === 'admin')
