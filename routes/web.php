@@ -119,6 +119,13 @@ Route::prefix('vendor')->name('vendor.')->middleware(['auth', 'verified'])->grou
             Route::get('/profile', [VendorController::class, 'profile'])->name('profile');
             Route::post('/request-promotion', [VendorController::class, 'requestPromotion'])->name('request-promotion');
         });
-    });
+});
+
+// Temporary test routes - remove in production
+Route::middleware(['auth'])->prefix('test')->group(function () {
+    Route::get('/notification/single', [App\Http\Controllers\TestNotificationController::class, 'testSingle']);
+    Route::get('/notification/broadcast', [App\Http\Controllers\TestNotificationController::class, 'testBroadcast']);
+    Route::post('/notification/preview', [App\Http\Controllers\TestNotificationController::class, 'previewRecipients']);
+});
 
 require __DIR__.'/auth.php';

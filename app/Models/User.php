@@ -262,4 +262,27 @@ class User extends Authenticatable
         return "{$property->address}, Unit {$unit->unit_number}";
     }
 
+    // Add to your existing User model
+
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class, 'to_user_id');
+    }
+
+    public function sentNotifications()
+    {
+        return $this->hasMany(Notification::class, 'from_user_id');
+    }
+
+    public function broadcastMessages()
+    {
+        return $this->hasMany(BroadcastMessage::class, 'sender_id');
+    }
+
+    // Helper to get unread notification count
+    public function unreadNotificationsCount(): int
+    {
+        return $this->notifications()->unread()->count();
+    }
+
 }
