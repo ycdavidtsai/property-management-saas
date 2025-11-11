@@ -27,6 +27,20 @@ class SendBroadcastMessageJob implements ShouldQueue
     public function handle(NotificationService $notificationService): void
     {
         try {
+            // Check if recipient has required contact info
+            $hasEmail = in_array('email', $this->broadcast->channels) && $this->recipient->email;
+            $hasSms = in_array('sms', $this->broadcast->channels) && $this->recipient->phone;
+
+            // Skip if no valid contact method
+            if (!$hasEmail && !$hasSms) {
+                Log::warning('Broadcast recipient has no valid contact info', [
+                    'broadcast_id' => $this->broadcast->id,
+                    'recipient_id' => $this->recipient->id,
+                    'channels_requested' => $this->broadcast->channels,
+                ]);
+                return; // Skip this recipient
+            }
+
             $results = $notificationService->send(
                 $this->recipient,
                 $this->broadcast->title,

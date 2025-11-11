@@ -9,6 +9,7 @@ use App\Http\Controllers\UnitController;
 use App\Http\Controllers\MaintenanceRequestController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\CommunicationController;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
@@ -36,6 +37,8 @@ Route::middleware(['auth', 'verified', 'organization'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    Route::get('/profile/notification-preferences', [ProfileController::class, 'editNotificationPreferences'])->name('profile.notification-preferences');
 
     // Property Management Routes
     Route::prefix('properties')->name('properties.')->group(function () {
@@ -72,27 +75,35 @@ Route::middleware(['auth', 'verified', 'organization'])->group(function () {
         Route::get('/{unit}/edit', [UnitController::class, 'edit'])->name('edit');
     });
 
-    // Route::middleware(['auth', 'organization'])->group(function () {
-    //     Route::resource('maintenance-requests', MaintenanceRequestController::class);
-    // });
-
-    // Vendor Management Routes, note form AI: The /{vendor} route is catching /browse-global and treating "browse-global" as a vendor ID!
-
+    // Vendor Management Routes
     Route::prefix('vendors')->name('vendors.')->group(function () {
         Route::get('/', [VendorController::class, 'index'])->name('index');
         Route::get('/create', [VendorController::class, 'create'])->name('create');
 
-        // ✅ Browse Global Vendors - BEFORE {vendor} wildcard
+        // Browse Global Vendors - BEFORE {vendor} wildcard
         Route::get('/browse-global', [VendorController::class, 'browseGlobal'])->name('browse-global');
         Route::post('/{vendor}/add-to-my-vendors', [VendorController::class, 'addToMyVendors'])->name('add-to-my-vendors');
         Route::delete('/{vendor}/remove-from-my-vendors', [VendorController::class, 'removeFromMyVendors'])->name('remove-from-my-vendors');
 
-        // ✅ Wildcard routes LAST
+        // Wildcard routes LAST
         Route::get('/{vendor}', [VendorController::class, 'show'])->name('show');
         Route::get('/{vendor}/edit', [VendorController::class, 'edit'])->name('edit');
         Route::delete('/{vendor}', [VendorController::class, 'destroy'])->name('destroy');
     });
 
+    // Communication Routes (NEW)
+    Route::prefix('communications')->name('communications.')->group(function () {
+        Route::get('/', [CommunicationController::class, 'index'])->name('index');
+
+        // Broadcast routes (landlord/manager only)
+        Route::middleware('role:landlord,manager,admin')->group(function () {
+            Route::get('/compose', [CommunicationController::class, 'compose'])->name('compose');
+            Route::get('/history', [CommunicationController::class, 'history'])->name('history');
+        });
+
+        // Notification routes (all authenticated users)
+        Route::get('/notifications', [CommunicationController::class, 'notifications'])->name('notifications');
+    });
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -125,7 +136,12 @@ Route::prefix('vendor')->name('vendor.')->middleware(['auth', 'verified'])->grou
 Route::middleware(['auth'])->prefix('test')->group(function () {
     Route::get('/notification/single', [App\Http\Controllers\TestNotificationController::class, 'testSingle']);
     Route::get('/notification/broadcast', [App\Http\Controllers\TestNotificationController::class, 'testBroadcast']);
+    Route::get('/notification/sms', [App\Http\Controllers\TestNotificationController::class, 'testSms']);
     Route::post('/notification/preview', [App\Http\Controllers\TestNotificationController::class, 'previewRecipients']);
 });
+
+// Webhook Routes (must be outside auth middleware)
+Route::post('/webhooks/twilio/status', [App\Http\Controllers\WebhookController::class, 'twilioStatus'])
+    ->name('webhooks.twilio.status');
 
 require __DIR__.'/auth.php';

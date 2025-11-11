@@ -9,6 +9,7 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use App\Services\RoleService;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Authenticatable
 {
@@ -34,18 +35,43 @@ class User extends Authenticatable
         'emergency_contact',
         'notes',
         'is_active',
+        'notification_preferences', // ← MUST BE HERE!
     ];
 
-    // Update casts array
-    protected $casts = [
-        'email_verified_at' => 'datetime',
-        'password' => 'hashed',
-        'permissions' => 'array',
-        'emergency_contact' => 'array',
-        'last_login_at' => 'datetime',
-        'is_active' => 'boolean',
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var list<string>
+     */
+    protected $hidden = [
+        'password',
+        'remember_token',
     ];
 
+    /**
+     * Get the attributes that should be cast.
+     *
+     * ✅ FIXED: Consolidated all casts into one method
+     * ✅ REMOVED: Duplicate $casts property that was causing conflicts
+     *
+     * @return array<string, string>
+     */
+
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+            'permissions' => 'array',
+            'emergency_contact' => 'array',
+            'last_login_at' => 'datetime',
+            'is_active' => 'boolean',
+            'notification_preferences' => 'array', // ✅ Now this will work!
+        ];
+    }
+
+    // ===== RELATIONSHIPS =====
+    
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
@@ -61,28 +87,7 @@ class User extends Authenticatable
         return $this->role === $role;
     }
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
-    {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
-    }
 
     // Role checking methods
     // public function isTenant(): bool
@@ -264,12 +269,12 @@ class User extends Authenticatable
 
     // Add to your existing User model
 
-    public function notifications()
+    public function notifications(): HasMany
     {
         return $this->hasMany(Notification::class, 'to_user_id');
     }
 
-    public function sentNotifications()
+    public function sentNotifications(): HasMany
     {
         return $this->hasMany(Notification::class, 'from_user_id');
     }
@@ -285,4 +290,11 @@ class User extends Authenticatable
         return $this->notifications()->unread()->count();
     }
 
+    /**
+     * Broadcast messages sent by this user
+     */
+    public function sentBroadcasts(): HasMany
+    {
+        return $this->hasMany(BroadcastMessage::class, 'sender_id');
+    }
 }

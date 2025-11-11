@@ -70,4 +70,33 @@ class TestNotificationController extends Controller
 
         return response()->json($preview);
     }
+
+    /**
+     * Test sending SMS
+     */
+    public function testSms()
+    {
+        $user = Auth::user();
+
+        if (!$user->phone) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Your user account does not have a phone number set.'
+            ]);
+        }
+
+        $this->notificationService->send(
+            $user,
+            'Test SMS',
+            'This is a test SMS message from your Property Management system.',
+            ['sms'], // Only SMS
+            'general'
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Test SMS sent to ' . $user->phone
+        ]);
+    }
+
 }

@@ -85,6 +85,19 @@
     </a>
 @endif
 
+{{-- Communications --}}
+@if(in_array(auth()->user()->role, ['admin', 'manager', 'landlord', 'tenant']))
+    <a href="{{ route('communications.index') }}"
+       class="group flex items-center px-2 py-2 text-sm font-medium rounded-md {{ request()->routeIs('communications.*') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }}">
+        <svg class="mr-3 flex-shrink-0 h-6 w-6 {{ request()->routeIs('communications.*') ? 'text-indigo-500' : 'text-gray-400 group-hover:text-gray-500' }}"
+     xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+    <path stroke-linecap="round" stroke-linejoin="round"
+          d="M7.5 8.25h9M7.5 11.25h5.25M21 12c0 4.97-4.03 9-9 9-1.66 0-3.21-.43-4.56-1.18L3 21l1.18-4.44C3.43 15.21 3 13.66 3 12c0-4.97 4.03-9 9-9s9 4.03 9 9z" />
+</svg>
+        Communications
+    </a>
+@endif
+
 {{-- for vendor dashboard only , DT modified--}}
 @if(auth()->user()->role === 'vendor')
 

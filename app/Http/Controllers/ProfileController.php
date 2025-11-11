@@ -22,6 +22,17 @@ class ProfileController extends Controller
     }
 
     /**
+     * Display the user's profile form. added by DT
+     */
+    public function editNotificationPreferences(Request $request): View
+    {
+        return view('profile.notification-preferences', [
+            'user' => $request->user(),
+        ]);
+    }
+
+
+    /**
      * Update the user's profile information.
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse

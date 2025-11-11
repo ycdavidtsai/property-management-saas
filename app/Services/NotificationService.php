@@ -38,7 +38,10 @@ class NotificationService
     ): array {
         $results = [];
 
-        foreach ($channels as $channel) {
+        // Check user's notification preferences
+        $allowedChannels = $this->getAllowedChannels($user, $notificationChannel, $channels);
+
+        foreach ($allowedChannels as $channel) {
             if ($channel === 'email' && $user->email) {
                 $results['email'] = $this->sendEmail(
                     $user,
@@ -62,6 +65,36 @@ class NotificationService
         }
 
         return $results;
+    }
+
+    /**
+     * Get allowed channels based on user preferences
+     */
+    protected function getAllowedChannels(User $user, string $notificationChannel, array $requestedChannels): array
+    {
+        // If user has no preferences set, allow all channels
+        if (!$user->notification_preferences) {
+            return $requestedChannels;
+        }
+
+        $preferences = $user->notification_preferences;
+
+        // If the notification channel doesn't exist in preferences, allow all
+        if (!isset($preferences[$notificationChannel])) {
+            return $requestedChannels;
+        }
+
+        $channelPrefs = $preferences[$notificationChannel];
+        $allowedChannels = [];
+
+        foreach ($requestedChannels as $channel) {
+            // Only include channel if user has enabled it in preferences
+            if (isset($channelPrefs[$channel]) && $channelPrefs[$channel]) {
+                $allowedChannels[] = $channel;
+            }
+        }
+
+        return $allowedChannels;
     }
 
     /**
@@ -129,6 +162,29 @@ class NotificationService
         $notifiable = null,
         ?User $fromUser = null
     ): Notification {
+        // Check if user has a phone number
+        if (!$user->phone) {
+            $notification = Notification::create([
+                'organization_id' => $user->organization_id,
+                'from_user_id' => $fromUser?->id,
+                'to_user_id' => $user->id,
+                'type' => 'sms',
+                'channel' => $channel,
+                'content' => $content,
+                'notifiable_type' => $notifiable ? get_class($notifiable) : null,
+                'notifiable_id' => $notifiable?->id,
+                'status' => 'failed',
+                'error_message' => 'User does not have a phone number',
+            ]);
+
+            Log::warning('SMS notification skipped - no phone number', [
+                'notification_id' => $notification->id,
+                'user_id' => $user->id,
+            ]);
+
+            return $notification;
+        }
+
         $notification = Notification::create([
             'organization_id' => $user->organization_id,
             'from_user_id' => $fromUser?->id,
@@ -150,13 +206,21 @@ class NotificationService
         }
 
         try {
+            // Build message parameters
+            $messageParams = [
+                'from' => config('services.twilio.phone'),
+                'body' => $content,
+            ];
+
+            // Only add statusCallback if we have a valid public URL
+            $appUrl = config('app.url');
+            if ($appUrl && !str_contains($appUrl, 'localhost') && !str_contains($appUrl, '127.0.0.1')) {
+                $messageParams['statusCallback'] = route('webhooks.twilio.status');
+            }
+
             $message = $this->twilio->messages->create(
                 $user->phone,
-                [
-                    'from' => config('services.twilio.phone'),
-                    'body' => $content,
-                    'statusCallback' => route('webhooks.twilio.status'),
-                ]
+                $messageParams
             );
 
             $notification->update([
