@@ -45,6 +45,11 @@ class ProfileController extends Controller
 
         $request->user()->save();
 
+        // ✨ NEW: Sync to vendor if user is a vendor
+        if ($request->user()->role === 'vendor') {
+            $request->user()->syncToVendor();
+        }
+
         return Redirect::route('profile.edit')->with('status', 'profile-updated');
     }
 

@@ -129,17 +129,17 @@
                                             <!-- Global Badge -->
                                             @if($vendor->isGlobal())
                                                 <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 border border-blue-200">
-                                                    🌐 Global
+                                                🌐
                                                 </span>
                                             @else
                                                 <!-- Private Badge -->
                                                 <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-800 border border-gray-300">
-                                                    🔒 Private
+                                                🔒
                                                 </span>
                                                 <!-- My Vendor Badge if current org created it -->
                                                 @if($vendor->isOwnedBy(auth()->user()->organization_id))
                                                     <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                                                        My Vendor
+                                                        Own
                                                     </span>
                                                 @endif
                                             @endif
@@ -197,22 +197,18 @@
                                     <a href="{{ route('vendors.show', $vendor) }}"
                                     class="text-blue-600 hover:text-blue-900"
                                     title="View Details">
-                                        View
+                                        🔍
                                     </a>
-                                    {{-- <a href="{{ route('vendors.edit', $vendor) }}"
-                                    class="text-indigo-600 hover:text-indigo-900"
-                                    title="Edit Vendor">
-                                        Edit
-                                    </a> --}}
-                                    @if($vendor->canBeEditedBy(auth()->user()))
+
+                                    @if($vendor->canBeEditedBy(auth()->user()) && !$vendor->isManagedByUser())
                                         <a href="{{ route('vendors.edit', $vendor) }}"
                                         class="text-indigo-600 hover:text-indigo-900"
                                         title="Edit Vendor">
-                                            Edit
+                                            📝
                                         </a>
                                     @else
                                         <span class="text-gray-400" title="Cannot edit this vendor">
-                                            Edit
+                                            📝
                                         </span>
                                     @endif
 
@@ -227,13 +223,13 @@
                                                 <button type="submit"
                                                         class="text-red-600 hover:text-red-900"
                                                         title="Delete Vendor">
-                                                    Delete
+                                                    ❌
                                                 </button>
                                             </form>
                                         @else
                                             <span class="text-gray-400 cursor-not-allowed"
                                                 title="Cannot delete vendor with maintenance requests">
-                                                Delete
+                                                ❌
                                             </span>
                                         @endif
                                     @endcan

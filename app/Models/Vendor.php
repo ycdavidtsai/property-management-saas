@@ -158,4 +158,33 @@ class Vendor extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+
+    /**
+     * ✨ NEW: Sync vendor data from linked user account
+     */
+    public function syncFromUser(User $user): void
+    {
+        $this->update([
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => $user->phone,
+        ]);
+    }
+
+    /**
+     * ✨ NEW: Check if vendor is managed by user account
+     */
+    public function isManagedByUser(): bool
+    {
+        return !is_null($this->user_id);
+    }
+
+    /**
+     * ✨ NEW: Check if vendor can be edited by landlord
+     */
+    public function canBeEditedByLandlord(): bool
+    {
+        // Can only edit if no user account is linked
+        return is_null($this->user_id);
+    }
 }

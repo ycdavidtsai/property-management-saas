@@ -52,9 +52,39 @@ class VendorController extends Controller
      */
     public function edit(Vendor $vendor)
     {
+        // ✨ NEW: Check if vendor can be edited
+        if ($vendor->isManagedByUser()) {
+            return redirect()->route('vendors.show', $vendor)
+                ->with('warning', 'This vendor has a user account and manages their own profile. You can only view their information.');
+        }
+
         $this->authorize('update', $vendor);
 
         return view('vendors.edit', compact('vendor'));
+    }
+
+    public function update(Request $request, Vendor $vendor)
+    {
+        // ✨ NEW: Prevent editing vendor with user account
+        if ($vendor->isManagedByUser()) {
+            return redirect()->route('vendors.show', $vendor)
+                ->with('error', 'Cannot edit vendor with a user account. They manage their own profile.');
+        }
+
+        // Existing update logic
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'contact_name' => 'required|string|max:255',
+            'email' => 'required|email',
+            'phone' => 'nullable|string',
+            'services' => 'nullable|array',
+            // ... other fields
+        ]);
+
+        $vendor->update($validated);
+
+        return redirect()->route('vendors.show', $vendor)
+            ->with('success', 'Vendor updated successfully!');
     }
 
     /**

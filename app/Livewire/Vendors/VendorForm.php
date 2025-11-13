@@ -58,21 +58,6 @@ class VendorForm extends Component
         'Inspections',
     ];
 
-    // protected function rules()
-    // {
-    //     return [
-    //         'name' => 'required|string|max:255',
-    //         'email' => 'required|email|max:255',
-    //         'phone' => 'nullable|string|max:20',
-    //         'business_type' => 'required|string',
-    //         'specialties' => 'nullable|array',
-    //         'hourly_rate' => 'nullable|numeric|min:0|max:99999.99',
-    //         'notes' => 'nullable|string|max:1000',
-    //         'is_active' => 'boolean',
-    //         'create_user_account' => 'boolean',
-    //     ];
-    // }
-
     public function mount(?Vendor $vendor = null)
     {
         $this->is_admin = Auth::user()->role === 'admin';

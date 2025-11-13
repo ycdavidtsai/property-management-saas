@@ -1,17 +1,16 @@
 {{-- Navigation User Section Component - resources/views/layouts/navigation-user-section.blade.php --}}
-
 <div x-data="{ userDropdownOpen: false }" class="w-full">
     {{-- User Info Button --}}
     <button @click="userDropdownOpen = !userDropdownOpen"
             class="group block w-full rounded-md p-2 text-left text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:bg-gray-50 focus:text-gray-900">
         <div class="flex items-center">
+
             {{-- User Avatar --}}
             <div class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-400">
                 <span class="text-sm font-medium leading-none text-white">
                     {{ strtoupper(substr(auth()->user()->name, 0, 2)) }}
                 </span>
             </div>
-
             {{-- User Info --}}
             <div class="ml-3 flex-1 min-w-0">
                 <p class="text-sm font-medium text-gray-900 truncate">
@@ -20,10 +19,19 @@
                 <p class="text-xs text-gray-500 truncate">
                     {{ auth()->user()->email }}
                 </p>
+
             </div>
 
             {{-- Dropdown Arrow --}}
             <div class="ml-2 flex-shrink-0">
+                <x-responsive-nav-link :href="route('communications.notifications')">
+                    @if(Auth::user()->notifications()->whereNull('read_at')->count() > 0)
+                        <span class="ml-2 px-2 py-1 text-xs font-bold text-white bg-red-600 rounded-full">
+                            {{ Auth::user()->notifications()->whereNull('read_at')->count() }}
+                        </span>
+                    @endif
+                </x-responsive-nav-link>
+
                 <svg class="h-5 w-5 text-gray-400 group-hover:text-gray-500 transition-transform duration-200"
                      :class="{ 'rotate-180': userDropdownOpen }"
                      xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">

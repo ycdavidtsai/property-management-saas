@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Services\RegistrationService;
 use Illuminate\Support\ServiceProvider;
+use App\Models\MaintenanceRequest;
+use App\Observers\MaintenanceRequestObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -20,6 +22,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // ✅ Register MaintenanceRequest Observer
+        MaintenanceRequest::observe(MaintenanceRequestObserver::class);
     }
 }

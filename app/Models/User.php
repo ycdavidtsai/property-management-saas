@@ -71,7 +71,7 @@ class User extends Authenticatable
     }
 
     // ===== RELATIONSHIPS =====
-    
+
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
@@ -86,14 +86,6 @@ class User extends Authenticatable
     {
         return $this->role === $role;
     }
-
-
-
-    // Role checking methods
-    // public function isTenant(): bool
-    // {
-    //     return $this->role === 'tenant';
-    // }
 
     public function isTenant(): bool
     {
@@ -296,5 +288,32 @@ class User extends Authenticatable
     public function sentBroadcasts(): HasMany
     {
         return $this->hasMany(BroadcastMessage::class, 'sender_id');
+    }
+
+    /**
+     * ✨ NEW: Sync user changes to vendor record if user is a vendor
+     */
+    public function syncToVendor(): void
+    {
+        // Only sync if user is a vendor
+        if ($this->role !== 'vendor') {
+            return;
+        }
+
+        // Find vendor record linked to this user
+        $vendor = Vendor::where('user_id', $this->id)->first();
+
+        if ($vendor) {
+            $vendor->update([
+                'name' => $this->name,
+                'email' => $this->email,
+                'phone' => $this->phone,
+            ]);
+
+            \Log::info('User profile synced to vendor', [
+                'user_id' => $this->id,
+                'vendor_id' => $vendor->id,
+            ]);
+        }
     }
 }

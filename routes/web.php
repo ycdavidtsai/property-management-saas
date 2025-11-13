@@ -38,6 +38,7 @@ Route::middleware(['auth', 'verified', 'organization'])->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
+    // Notification Preferences
     Route::get('/profile/notification-preferences', [ProfileController::class, 'editNotificationPreferences'])->name('profile.notification-preferences');
 
     // Property Management Routes
