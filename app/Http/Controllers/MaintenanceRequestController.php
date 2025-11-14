@@ -45,6 +45,7 @@ class MaintenanceRequestController extends Controller
     {
         $this->authorize('view', $maintenanceRequest);
 
+        //the following loads related models then passes to view
         $maintenanceRequest->load([
             'property',
             'unit',

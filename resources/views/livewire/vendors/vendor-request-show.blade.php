@@ -1,4 +1,5 @@
 {{-- This is Vendor view maintenance request details page --}}
+<div>{{-- Beginning root Livewire div HERE --}}
     <div class="flex flex-col lg:flex-row lg:items-start gap-6">
         <!-- Main Content -->
         <main class="flex-1 space-y-6">
@@ -267,7 +268,6 @@
         </aside>
     </div>
 
-
     <!-- Complete Work Modal -->
     @if($showCompleteModal)
         <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
@@ -345,7 +345,7 @@
             </div>
         </div>
     @endif
-</div>
+</div>{{-- Close root Livewire div HERE --}}
 
 <!-- Inline Script for File Validation -->
 <script>

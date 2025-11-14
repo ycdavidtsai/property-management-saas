@@ -6,6 +6,7 @@ use App\Models\MaintenanceRequest;
 use App\Models\MaintenanceRequestUpdate;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -72,9 +73,14 @@ class VendorRequestShow extends Component
         $this->maintenanceRequest->refresh();
     }
 
-    // ✅ RESTORED: Missing updateStatus method
     public function updateStatus($newStatus)
     {
+
+        // Log::info('VendorRequestShow:updateStatus START', [
+        //     'newStatus' => $newStatus,
+        //     'showCompleteModal_before' => $this->showCompleteModal,
+        // ]);
+
         $this->authorize('updateStatus', $this->maintenanceRequest);
 
         $allowedTransitions = [
@@ -93,6 +99,11 @@ class VendorRequestShow extends Component
         // If transitioning to completed, show modal for completion details
         if ($newStatus === 'completed') {
             $this->showCompleteModal = true;
+
+            // Log::info('VendorRequestShow:updateStatus SET MODAL', [
+            //     'showCompleteModal_after' => $this->showCompleteModal,
+            // ]);
+
             return;
         }
 
@@ -128,10 +139,11 @@ class VendorRequestShow extends Component
             }
         }
 
-        // Update request
+        // Update maintenanceRequest status to completed
         $this->maintenanceRequest->update([
             'status' => 'completed',
             'actual_cost' => $this->actualCost,
+            'completion_notes' => $this->completionNotes,
             'completed_at' => now(),
         ]);
 
