@@ -135,7 +135,7 @@
                         @endif
 
                         <!-- Notification Settings -->
-                        <a href="{{ route('profile.edit') }}#notifications"
+                        <a href="{{ route('profile.notification-preferences') }}"
                            class="p-4 border border-gray-200 rounded-lg hover:border-gray-500 hover:bg-gray-50 transition-all">
                             <div class="flex items-center">
                                 <svg class="w-6 h-6 text-gray-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

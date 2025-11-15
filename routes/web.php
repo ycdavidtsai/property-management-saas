@@ -10,8 +10,11 @@ use App\Http\Controllers\MaintenanceRequestController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\CommunicationController;
+use App\Http\Controllers\WebhookController;
+use Illuminate\Http\Request;
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 
@@ -142,7 +145,11 @@ Route::middleware(['auth'])->prefix('test')->group(function () {
 });
 
 // Webhook Routes (must be outside auth middleware)
-Route::post('/webhooks/twilio/status', [App\Http\Controllers\WebhookController::class, 'twilioStatus'])
-    ->name('webhooks.twilio.status');
+// Route::post('/webhooks/twilio/status', [WebhookController::class, 'twilioStatus'])
+//     ->name('webhooks.twilio.status')
+//     ->withoutMiddleware([
+//         \App\Http\Middleware\VerifyCsrfToken::class,
+//         \Illuminate\Foundation\Http\Middleware\ValidatePostSize::class,
+//     ]);
 
 require __DIR__.'/auth.php';

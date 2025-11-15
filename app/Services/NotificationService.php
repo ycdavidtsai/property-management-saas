@@ -222,10 +222,10 @@ class NotificationService
                 'body' => $content,
             ];
 
-            // Only add statusCallback if we have a valid public URL
+            // Only add statusCallback if we have a valid public URL (not localhost)
             $appUrl = config('app.url');
             if ($appUrl && !str_contains($appUrl, 'localhost') && !str_contains($appUrl, '127.0.0.1')) {
-                $messageParams['statusCallback'] = route('webhooks.twilio.status');
+                $messageParams['statusCallback'] = url('/twilio-webhook.php'); // Direct file bypasses CSRF
             }
 
             $message = $this->twilio->messages->create(
@@ -444,8 +444,15 @@ class NotificationService
                     ];
 
                     if ($appUrl && !str_contains($appUrl, 'localhost') && !str_contains($appUrl, '127.0.0.1')) {
-                        $messageParams['statusCallback'] = route('webhooks.twilio.status');
+                        $messageParams['statusCallback'] = url('/twilio-webhook.php'); // Direct file bypasses CSRF
                     }
+
+                    // Log the callback URL for debugging
+                    Log::info('SMS sent with callback', [
+                        'to' => $vendorUser->phone,
+                        'callback_url' => url('/twilio-webhook.php'),
+                        'message_sid' => $notification->sid,
+                    ]);
 
                     $message = $this->twilio->messages->create(
                         $vendorUser->phone,

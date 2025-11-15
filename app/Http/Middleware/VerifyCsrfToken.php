@@ -13,5 +13,8 @@ class VerifyCsrfToken extends Middleware
      */
     protected $except = [
         'webhooks/*', // Exclude all webhook routes from CSRF
+        'webhooks/twilio/status',
+        'webhooks/twilio/*',
+        'webhooks/postmark/*',
     ];
 }

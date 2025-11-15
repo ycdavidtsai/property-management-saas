@@ -191,7 +191,7 @@
                                         class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                                     >
                                     <span class="ml-2 text-sm text-gray-700">
-                                        {{ $tenant->name }} ({{ $tenant->email }})
+                                        {{ $tenant->name }} ({{ $tenant->email }}) ({{ $tenant->phone }})
                                     </span>
                                 </label>
                             @empty
@@ -244,9 +244,9 @@
                     <div class="max-h-32 overflow-y-auto space-y-1">
                         @foreach($previewRecipients as $recipient)
                             <div class="text-sm text-green-700">
-                                <strong>{{ $recipient['name'] }}</strong> - {{ $recipient['email'] }}
+                                <strong>{{ $recipient['name'] }}</strong> - {{ $recipient['email'] }}/ {{ $recipient['phone'] }}
                                 @if($recipient['unit'])
-                                    <span class="text-green-600">(Unit {{ $recipient['unit'] }})</span>
+                                    <span class="text-green-600">( {{ $recipient['property'] }}/ Unit: {{ $recipient['unit'] }})</span>
                                 @endif
                             </div>
                         @endforeach
