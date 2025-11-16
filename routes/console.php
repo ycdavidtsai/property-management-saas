@@ -24,5 +24,9 @@ Schedule::command('leases:update-statuses')
     ->description('Update lease statuses based on expiration dates')
     ->onOneServer(); // Prevent multiple servers from running this simultaneously
 
+// Process the queue every minute, set up Cron Job to run Laravel scheduler
+Schedule::command('queue:work --stop-when-empty --max-time=50')
+        ->everyMinute()
+        ->withoutOverlapping();
 // Optional: Run more frequently during testing/development
 // Schedule::command('leases:update-statuses')->hourly();
