@@ -190,17 +190,33 @@
 
     <!-- Details Modal -->
     @if($showDetails && $selectedBroadcast)
-        <div class="fixed inset-0 z-50 overflow-y-auto" x-data="{ open: @entangle('showDetails') }" x-show="open" style="display: none;">
-            <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                <!-- Background overlay -->
-                <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" @click="$wire.closeDetails()"></div>
+        <div class="fixed inset-0 z-50 overflow-y-auto" x-data="{ show: @entangle('showDetails') }">
+            <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+                <!-- Overlay -->
+                <div x-show="show"
+                     x-transition:enter="ease-out duration-300"
+                     x-transition:enter-start="opacity-0"
+                     x-transition:enter-end="opacity-100"
+                     x-transition:leave="ease-in duration-200"
+                     x-transition:leave-start="opacity-100"
+                     x-transition:leave-end="opacity-0"
+                     class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+                     @click="$wire.closeDetails()"></div>
 
-                <!-- Modal panel -->
-                <div class="inline-block w-full max-w-3xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-lg shadow-xl">
+                <!-- Modal -->
+                <div x-show="show"
+                     x-transition:enter="ease-out duration-300"
+                     x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                     x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                     x-transition:leave="ease-in duration-200"
+                     x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                     x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                     class="inline-block w-full max-w-4xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
+
                     <!-- Header -->
-                    <div class="px-6 py-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
+                    <div class="px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
                         <div class="flex items-center justify-between">
-                            <h3 class="text-xl font-semibold text-gray-800">Broadcast Details</h3>
+                            <h3 class="text-lg font-semibold text-gray-900">Broadcast Details</h3>
                             <button wire:click="closeDetails" class="text-gray-400 hover:text-gray-600">
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -210,126 +226,189 @@
                     </div>
 
                     <!-- Content -->
-                    <div class="px-6 py-6 max-h-[70vh] overflow-y-auto">
-                        <!-- Title and Status -->
+                    <div class="px-6 py-4 max-h-[70vh] overflow-y-auto">
+                        <!-- Basic Info -->
                         <div class="mb-6">
-                            <div class="flex items-center gap-3 mb-2">
-                                <h4 class="text-2xl font-bold text-gray-800">{{ $selectedBroadcast->title }}</h4>
-                                <span class="px-3 py-1 text-sm font-medium rounded-full
-                                    {{ $selectedBroadcast->status === 'sent' ? 'bg-green-100 text-green-800' : '' }}
-                                    {{ $selectedBroadcast->status === 'sending' ? 'bg-blue-100 text-blue-800' : '' }}
-                                    {{ $selectedBroadcast->status === 'scheduled' ? 'bg-yellow-100 text-yellow-800' : '' }}
-                                    {{ $selectedBroadcast->status === 'draft' ? 'bg-gray-100 text-gray-800' : '' }}
-                                    {{ $selectedBroadcast->status === 'failed' ? 'bg-red-100 text-red-800' : '' }}">
-                                    {{ ucfirst($selectedBroadcast->status) }}
-                                </span>
-                            </div>
-                            <div class="flex items-center gap-4 text-sm text-gray-500">
-                                <span>Sent by {{ $selectedBroadcast->sender->name }}</span>
-                                <span>•</span>
-                                <span>{{ $selectedBroadcast->created_at->format('M j, Y g:i A') }}</span>
-                            </div>
+                            <h4 class="text-xl font-bold text-gray-900 mb-2">{{ $selectedBroadcast->title }}</h4>
+                            <p class="text-gray-600">{{ $selectedBroadcast->message }}</p>
                         </div>
 
-                        <!-- Message Content -->
-                        <div class="mb-6 p-4 bg-gray-50 rounded-lg">
-                            <h5 class="text-sm font-medium text-gray-700 mb-2">Message Content</h5>
-                            <p class="text-gray-800 whitespace-pre-wrap">{{ $selectedBroadcast->message }}</p>
-                        </div>
-
-                        <!-- Delivery Information -->
-                        <div class="mb-6">
-                            <h5 class="text-sm font-medium text-gray-700 mb-3">Delivery Information</h5>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div class="p-4 bg-blue-50 rounded-lg">
-                                    <div class="text-sm text-blue-600 mb-1">Channels</div>
-                                    <div class="flex gap-2">
-                                        @foreach($selectedBroadcast->channels as $channel)
-                                            <span class="px-2 py-1 bg-white text-xs font-medium rounded">{{ ucfirst($channel) }}</span>
-                                        @endforeach
-                                    </div>
+                        <!-- Metadata -->
+                        <div class="grid grid-cols-2 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+                            <div>
+                                <span class="text-sm text-gray-500">Sent by:</span>
+                                <p class="font-medium">{{ $selectedBroadcast->sender->name }}</p>
+                            </div>
+                            <div>
+                                <span class="text-sm text-gray-500">Sent at:</span>
+                                <p class="font-medium">{{ $selectedBroadcast->sent_at ? $selectedBroadcast->sent_at->format('M j, Y g:i A') : 'Not sent' }}</p>
+                            </div>
+                            <div>
+                                <span class="text-sm text-gray-500">Channels:</span>
+                                <div class="flex gap-2 mt-1">
+                                    @foreach($selectedBroadcast->channels as $channel)
+                                        <span class="px-2 py-1 text-xs font-medium rounded-full
+                                            {{ $channel === 'email' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800' }}">
+                                            {{ ucfirst($channel) }}
+                                        </span>
+                                    @endforeach
                                 </div>
-                                <div class="p-4 bg-green-50 rounded-lg">
-                                    <div class="text-sm text-green-600 mb-1">Recipient Type</div>
-                                    <div class="font-medium">{{ str_replace('_', ' ', ucwords($selectedBroadcast->recipient_type)) }}</div>
-                                </div>
+                            </div>
+                            <div>
+                                <span class="text-sm text-gray-500">Status:</span>
+                                <p class="font-medium">{{ ucfirst($selectedBroadcast->status) }}</p>
                             </div>
                         </div>
 
                         <!-- Statistics -->
                         @if($selectedBroadcast->status === 'sent')
                             <div class="mb-6">
-                                <h5 class="text-sm font-medium text-gray-700 mb-3">Delivery Statistics</h5>
-                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <h5 class="font-semibold text-gray-900 mb-3">Delivery Statistics</h5>
+                                <div class="grid grid-cols-2 gap-4">
                                     <!-- Email Stats -->
                                     @if(in_array('email', $selectedBroadcast->channels))
-                                        <div class="p-4 border rounded-lg">
-                                            <div class="text-xs text-gray-500 mb-1">Emails Sent</div>
-                                            <div class="text-2xl font-bold text-blue-600">{{ $selectedBroadcast->emails_sent }}</div>
-                                        </div>
-                                        <div class="p-4 border rounded-lg">
-                                            <div class="text-xs text-gray-500 mb-1">Emails Delivered</div>
-                                            <div class="text-2xl font-bold text-green-600">{{ $selectedBroadcast->emails_delivered }}</div>
+                                        <div class="p-4 bg-blue-50 rounded-lg">
+                                            <h6 class="text-sm font-medium text-blue-900 mb-2">Email</h6>
+                                            <div class="space-y-1 text-sm">
+                                                <div class="flex justify-between">
+                                                    <span class="text-blue-700">Sent:</span>
+                                                    <span class="font-medium">{{ $selectedBroadcast->emails_sent }}</span>
+                                                </div>
+                                                <div class="flex justify-between">
+                                                    <span class="text-green-700">Delivered:</span>
+                                                    <span class="font-medium">{{ $selectedBroadcast->emails_delivered }}</span>
+                                                </div>
+                                                @if($selectedBroadcast->emails_failed > 0)
+                                                    <div class="flex justify-between">
+                                                        <span class="text-red-700">Failed:</span>
+                                                        <span class="font-medium">{{ $selectedBroadcast->emails_failed }}</span>
+                                                    </div>
+                                                @endif
+                                            </div>
                                         </div>
                                     @endif
 
                                     <!-- SMS Stats -->
                                     @if(in_array('sms', $selectedBroadcast->channels))
-                                        <div class="p-4 border rounded-lg">
-                                            <div class="text-xs text-gray-500 mb-1">SMS Sent</div>
-                                            <div class="text-2xl font-bold text-blue-600">{{ $selectedBroadcast->sms_sent }}</div>
-                                        </div>
-                                        <div class="p-4 border rounded-lg">
-                                            <div class="text-xs text-gray-500 mb-1">SMS Delivered</div>
-                                            <div class="text-2xl font-bold text-green-600">{{ $selectedBroadcast->sms_delivered }}</div>
+                                        <div class="p-4 bg-green-50 rounded-lg">
+                                            <h6 class="text-sm font-medium text-green-900 mb-2">SMS</h6>
+                                            <div class="space-y-1 text-sm">
+                                                <div class="flex justify-between">
+                                                    <span class="text-green-700">Sent:</span>
+                                                    <span class="font-medium">{{ $selectedBroadcast->sms_sent }}</span>
+                                                </div>
+                                                <div class="flex justify-between">
+                                                    <span class="text-green-700">Delivered:</span>
+                                                    <span class="font-medium">{{ $selectedBroadcast->sms_delivered }}</span>
+                                                </div>
+                                                @if($selectedBroadcast->sms_failed > 0)
+                                                    <div class="flex justify-between">
+                                                        <span class="text-red-700">Failed:</span>
+                                                        <span class="font-medium">{{ $selectedBroadcast->sms_failed }}</span>
+                                                    </div>
+                                                @endif
+                                            </div>
                                         </div>
                                     @endif
                                 </div>
-
-                                <!-- Overall Stats -->
-                                <div class="mt-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg">
-                                    <div class="grid grid-cols-3 gap-4 text-center">
-                                        <div>
-                                            <div class="text-2xl font-bold text-purple-600">{{ $selectedBroadcast->total_sent }}</div>
-                                            <div class="text-xs text-purple-700">Total Sent</div>
-                                        </div>
-                                        <div>
-                                            <div class="text-2xl font-bold text-green-600">{{ $selectedBroadcast->total_delivered }}</div>
-                                            <div class="text-xs text-green-700">Total Delivered</div>
-                                        </div>
-                                        <div>
-                                            <div class="text-2xl font-bold text-indigo-600">{{ $selectedBroadcast->delivery_rate }}%</div>
-                                            <div class="text-xs text-indigo-700">Delivery Rate</div>
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
                         @endif
 
-                        <!-- Recipient Filters (if any) -->
-                        @if($selectedBroadcast->recipient_filters)
-                            <div class="mb-6">
-                                <h5 class="text-sm font-medium text-gray-700 mb-2">Recipient Filters</h5>
-                                <div class="p-3 bg-gray-50 rounded text-sm">
-                                    <pre class="text-gray-700">{{ json_encode($selectedBroadcast->recipient_filters, JSON_PRETTY_PRINT) }}</pre>
+                        <!-- Recipients List -->
+                        <div class="mb-6">
+                            <h5 class="font-semibold text-gray-900 mb-3">
+                                Recipients ({{ $selectedBroadcast->notifications->count() }})
+                            </h5>
+                            <div class="border rounded-lg overflow-hidden">
+                                <div class="max-h-64 overflow-y-auto">
+                                    <table class="w-full text-sm">
+                                        <thead class="bg-gray-50 sticky top-0">
+                                            <tr>
+                                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
+                                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-gray-200">
+                                            @php
+                                                // Group notifications by recipient to avoid duplicates
+                                                $recipientNotifications = $selectedBroadcast->notifications->groupBy('to_user_id');
+                                            @endphp
+                                            @foreach($recipientNotifications as $userId => $userNotifications)
+                                                @php
+                                                    $recipient = $userNotifications->first()->toUser;
+                                                    // Get status for each channel
+                                                    $emailNotification = $userNotifications->where('type', 'email')->first();
+                                                    $smsNotification = $userNotifications->where('type', 'sms')->first();
+                                                @endphp
+                                                <tr class="hover:bg-gray-50">
+                                                    <td class="px-4 py-3 font-medium text-gray-900">
+                                                        {{ $recipient->name }}
+                                                    </td>
+                                                    <td class="px-4 py-3 text-gray-600">
+                                                        <div class="flex items-center gap-2">
+                                                            {{ $recipient->email }}
+                                                            @if($emailNotification)
+                                                                @if($emailNotification->status === 'delivered')
+                                                                    <span class="text-green-600" title="Delivered">✓</span>
+                                                                @elseif($emailNotification->status === 'failed')
+                                                                    <span class="text-red-600" title="Failed">✗</span>
+                                                                @elseif($emailNotification->status === 'sent')
+                                                                    <span class="text-blue-600" title="Sent">→</span>
+                                                                @endif
+                                                            @endif
+                                                        </div>
+                                                    </td>
+                                                    <td class="px-4 py-3 text-gray-600">
+                                                        <div class="flex items-center gap-2">
+                                                            {{ $recipient->phone ?? '-' }}
+                                                            @if($smsNotification)
+                                                                @if($smsNotification->status === 'delivered')
+                                                                    <span class="text-green-600" title="Delivered">✓</span>
+                                                                @elseif($smsNotification->status === 'failed')
+                                                                    <span class="text-red-600" title="Failed">✗</span>
+                                                                @elseif($smsNotification->status === 'sent')
+                                                                    <span class="text-blue-600" title="Sent">→</span>
+                                                                @endif
+                                                            @endif
+                                                        </div>
+                                                    </td>
+                                                    <td class="px-4 py-3">
+                                                        @php
+                                                            $allDelivered = $userNotifications->every(fn($n) => $n->status === 'delivered');
+                                                            $anyFailed = $userNotifications->contains(fn($n) => $n->status === 'failed');
+                                                        @endphp
+                                                        @if($allDelivered)
+                                                            <span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">Delivered</span>
+                                                        @elseif($anyFailed)
+                                                            <span class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full">Failed</span>
+                                                        @else
+                                                            <span class="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">Sent</span>
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
-                        @endif
+                        </div>
                     </div>
 
                     <!-- Footer -->
-                    <div class="px-6 py-4 border-t bg-gray-50 flex justify-between">
-                        <div>
-                            @if(in_array($selectedBroadcast->status, ['draft', 'failed']))
-                                <button
-                                    wire:click="deleteBroadcast('{{ $selectedBroadcast->id }}')"
-                                    wire:confirm="Are you sure you want to delete this broadcast?"
-                                    class="px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors">
-                                    Delete Broadcast
-                                </button>
-                            @endif
-                        </div>
-                        <button wire:click="closeDetails" class="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                    <div class="px-6 py-4 bg-gray-50 border-t flex justify-between">
+                        @if(in_array($selectedBroadcast->status, ['draft', 'failed']))
+                            <button wire:click="deleteBroadcast('{{ $selectedBroadcast->id }}')"
+                                    onclick="return confirm('Are you sure you want to delete this broadcast?')"
+                                    class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                                Delete Broadcast
+                            </button>
+                        @else
+                            <div></div>
+                        @endif
+                        <button wire:click="closeDetails"
+                                class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">
                             Close
                         </button>
                     </div>

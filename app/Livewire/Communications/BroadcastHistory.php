@@ -27,11 +27,23 @@ class BroadcastHistory extends Component
         $this->resetPage();
     }
 
+    // public function viewDetails($broadcastId)
+    // {
+    //     $this->selectedBroadcast = BroadcastMessage::with(['sender', 'notifications'])
+    //         ->where('organization_id', Auth::user()->organization_id)
+    //         ->findOrFail($broadcastId);
+
+    //     $this->showDetails = true;
+    // }
+
     public function viewDetails($broadcastId)
     {
-        $this->selectedBroadcast = BroadcastMessage::with(['sender', 'notifications'])
-            ->where('organization_id', Auth::user()->organization_id)
-            ->findOrFail($broadcastId);
+        $this->selectedBroadcast = BroadcastMessage::with([
+            'sender',
+            'notifications.toUser' // ← Load the actual recipient users
+        ])
+        ->where('organization_id', Auth::user()->organization_id)
+        ->findOrFail($broadcastId);
 
         $this->showDetails = true;
     }
