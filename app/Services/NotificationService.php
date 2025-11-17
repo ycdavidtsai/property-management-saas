@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\GenericNotification;
 use Twilio\Rest\Client as TwilioClient;
+use Illuminate\Support\Facades\Http;
 
 class NotificationService
 {
@@ -108,7 +109,7 @@ class NotificationService
     }
 
     /**
-     * Send email notification
+     * Send email notification with Postmark MessageID capture
      */
     public function sendEmail(
         User $user,
@@ -132,21 +133,69 @@ class NotificationService
         ]);
 
         try {
-            Mail::to($user->email)->send(new GenericNotification(
-                $subject,
-                $content,
-                $notification
-            ));
+            // Check if using Postmark
+            $mailDriver = config('mail.default');
 
-            $notification->update([
-                'status' => 'sent',
-                'sent_at' => now(),
-            ]);
+            if ($mailDriver === 'postmark') {
+                // Send via Postmark API directly to get MessageID
+                $postmarkToken = config('services.postmark.token');
 
-            Log::info('Email notification sent', [
-                'notification_id' => $notification->id,
-                'to' => $user->email
-            ]);
+                $response = Http::withHeaders([
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json',
+                    'X-Postmark-Server-Token' => $postmarkToken,
+                ])
+                ->post('https://api.postmarkapp.com/email', [
+                    'From' => config('mail.from.address'),
+                    'To' => $user->email,
+                    'Subject' => $subject,
+                    'HtmlBody' => nl2br(e($content)),
+                    'TextBody' => $content,
+                    'MessageStream' => 'outbound',
+                    'TrackOpens' => true,
+                ]);
+
+                if ($response->successful()) {
+                    $data = $response->json();
+                    $messageId = $data['MessageID'] ?? null;
+
+                    $notification->update([
+                        'status' => 'sent',
+                        'sent_at' => now(),
+                        'provider_id' => $messageId, // Store Postmark MessageID
+                        'provider_response' => [
+                            'to' => $data['To'] ?? null,
+                            'submitted_at' => $data['SubmittedAt'] ?? null,
+                        ],
+                    ]);
+
+                    Log::info('Email notification sent via Postmark', [
+                        'notification_id' => $notification->id,
+                        'to' => $user->email,
+                        'message_id' => $messageId,
+                    ]);
+                } else {
+                    throw new \Exception('Postmark API error: ' . $response->body());
+                }
+            } else {
+                // Fall back to standard Laravel Mail for other drivers
+                Mail::to($user->email)->send(new GenericNotification(
+                    $subject,
+                    $content,
+                    $notification
+                ));
+
+                $notification->update([
+                    'status' => 'sent',
+                    'sent_at' => now(),
+                ]);
+
+                Log::info('Email notification sent', [
+                    'notification_id' => $notification->id,
+                    'to' => $user->email,
+                    'driver' => $mailDriver,
+                ]);
+            }
         } catch (\Exception $e) {
             Log::error('Email notification failed', [
                 'notification_id' => $notification->id,

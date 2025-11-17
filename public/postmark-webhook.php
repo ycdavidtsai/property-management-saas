@@ -1,5 +1,5 @@
 <?php
-// Postmark webhook - tracks email delivery status
+// Postmark webhook - tracks email delivery status with MessageID matching
 header('Content-Type: application/json');
 $log = __DIR__ . '/../storage/logs/postmark-webhook.log';
 
@@ -66,33 +66,22 @@ try {
     $messageId = $payload['MessageID'] ?? null; // Postmark's message ID
     $recipient = $payload['Recipient'] ?? $payload['Email'] ?? null;
 
-    if (!$messageId || !$recipient) {
-        logMsg("Missing MessageID or Recipient");
-        echo json_encode(['success' => false, 'error' => 'Missing required fields']);
+    if (!$messageId) {
+        logMsg("Missing MessageID");
+        echo json_encode(['success' => false, 'error' => 'Missing MessageID']);
         exit;
     }
 
     logMsg("MessageID: {$messageId}, Recipient: {$recipient}, Type: {$recordType}");
 
-    // Find notification by recipient email and type
-    // Note: Postmark doesn't give us back our internal ID easily, so we match by email + recent timestamp
-    $stmt = $pdo->prepare("
-        SELECT id, status, notifiable_type, notifiable_id
-        FROM notifications
-        WHERE type = 'email'
-        AND to_user_id = (SELECT id FROM users WHERE email = ? LIMIT 1)
-        AND status IN ('pending', 'sent')
-        AND created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)
-        ORDER BY created_at DESC
-        LIMIT 1
-    ");
-    $stmt->execute([$recipient]);
+    // Find notification by Postmark MessageID (exact match - just like Twilio!)
+    $stmt = $pdo->prepare('SELECT id, status, type, notifiable_type, notifiable_id FROM notifications WHERE provider_id = ? LIMIT 1');
+    $stmt->execute([$messageId]);
     $notification = $stmt->fetch();
 
     if (!$notification) {
-        logMsg("  → No matching notification found for {$recipient}");
-        // This is OK - might be a test email or system email
-        echo json_encode(['success' => true, 'message' => 'No matching notification']);
+        logMsg("  → Notification not found for MessageID: {$messageId}");
+        echo json_encode(['success' => false, 'error' => 'Notification not found']);
         exit;
     }
 
@@ -103,6 +92,7 @@ try {
 
     // Map Postmark event types to our statuses
     $newStatus = null;
+    $errorMessage = null;
 
     switch ($recordType) {
         case 'Delivery':
@@ -113,12 +103,13 @@ try {
         case 'Bounce':
             $newStatus = 'failed';
             $bounceType = $payload['Type'] ?? 'Unknown';
-            $description = $payload['Description'] ?? 'Email bounced';
-            logMsg("  → Email bounced: {$bounceType} - {$description}");
+            $errorMessage = $payload['Description'] ?? 'Email bounced';
+            logMsg("  → Email bounced: {$bounceType} - {$errorMessage}");
             break;
 
         case 'SpamComplaint':
             $newStatus = 'failed';
+            $errorMessage = 'Marked as spam by recipient';
             logMsg("  → Marked as spam");
             break;
 
@@ -156,10 +147,10 @@ try {
         }
 
         // If failed, store error message
-        if ($newStatus === 'failed' && isset($payload['Description'])) {
+        if ($newStatus === 'failed' && $errorMessage) {
             $stmt = $pdo->prepare('UPDATE notifications SET error_message = ? WHERE id = ?');
-            $stmt->execute([$payload['Description'], $notificationId]);
-            logMsg("  → Stored error message");
+            $stmt->execute([$errorMessage, $notificationId]);
+            logMsg("  → Stored error message: {$errorMessage}");
         }
 
         // Update broadcast_messages if this notification is part of a broadcast
@@ -233,11 +224,12 @@ try {
             'success' => true,
             'notification_id' => $notificationId,
             'old_status' => $oldStatus,
-            'new_status' => $newStatus
+            'new_status' => $newStatus,
+            'broadcast_updated' => isset($broadcastId)
         ]);
 
     } else {
-        logMsg("  → Status unchanged or already processed");
+        logMsg("  → Status unchanged ({$newStatus})");
         echo json_encode(['success' => true, 'message' => 'Status unchanged']);
     }
 
