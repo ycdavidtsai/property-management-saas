@@ -415,7 +415,7 @@ class NotificationService
 
         $emailTemplate = "You have been assigned a new maintenance job.\n\nProperty: {property}\nUnit: {unit}\nTenant: {tenant}\nTenant Phone: {tenant_phone}\n\nCategory: {category}\nPriority: {priority}\nDescription: {description}\n\nScheduled: {scheduled}\n\nPlease contact the tenant to coordinate access.";
 
-        $smsTemplate = 'New {priority} job assigned: {category} at {property} Unit {unit}. Contact tenant at {tenant_phone}.';
+        $smsTemplate = 'New {priority} job assigned: {category} at {property} Unit {unit}. Contact tenant at {tenant_phone}. See details: ' . url('/vendor/requests/' . $maintenanceRequest->id);
 
         $emailContent = str_replace(array_keys($replacements), array_values($replacements), $emailTemplate);
         $smsContent = str_replace(array_keys($replacements), array_values($replacements), $smsTemplate);
