@@ -14,7 +14,7 @@
                             {{ ucfirst($maintenanceRequest->priority) }} Priority
                         </span>
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-{{ $maintenanceRequest->status_color ?? 'blue' }}-100 text-{{ $maintenanceRequest->status_color ?? 'blue' }}-800">
-                            {{ ucfirst(str_replace('_', ' ', $maintenanceRequest->status)) }}
+                            {{ $maintenanceRequest->status_label }}
                         </span>
                     </div>
                 </div>
@@ -62,17 +62,62 @@
                 @endif
 
                 <!-- Status Actions -->
-                @if($maintenanceRequest->status === 'assigned')
+                @if($maintenanceRequest->status === 'pending_acceptance')
+                    {{-- NEW: Pending Acceptance UI --}}
+                    <div class="mt-6 pt-6 border-t">
+                        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+                            <div class="flex items-start">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-6 w-6 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                    </svg>
+                                </div>
+                                <div class="ml-3 flex-1">
+                                    <h3 class="text-sm font-semibold text-yellow-900">Assignment Pending Your Acceptance</h3>
+                                    <p class="text-sm text-yellow-700 mt-1">
+                                        Please review the request details carefully and decide if you can take this job.
+                                        If you accept, you'll be able to start work. If you need to decline, please provide a reason to help the property manager.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-3">
+                            <!-- Accept Button -->
+                            <button wire:click="acceptAssignment"
+                                    wire:loading.attr="disabled"
+                                    onclick="return confirm('Are you sure you want to accept this assignment? You will be committed to completing this work.')"
+                                    class="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow-sm flex items-center justify-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                                <span wire:loading.remove wire:target="acceptAssignment">Accept Assignment</span>
+                                <span wire:loading wire:target="acceptAssignment">Accepting...</span>
+                            </button>
+
+                            <!-- Reject Button -->
+                            <button wire:click="$set('showRejectModal', true)"
+                                    type="button"
+                                    class="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow-sm flex items-center justify-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                                Reject Assignment
+                            </button>
+                        </div>
+                    </div>
+
+                @elseif($maintenanceRequest->status === 'assigned')
                     <div class="mt-6 pt-6 border-t">
                         <button wire:click="updateStatus('in_progress')"
-                                class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
                             Start Work
                         </button>
                     </div>
                 @elseif($maintenanceRequest->status === 'in_progress')
                     <div class="mt-6 pt-6 border-t">
                         <button wire:click="updateStatus('completed')"
-                                class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+                                class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
                             Mark as Completed
                         </button>
                     </div>
@@ -145,16 +190,9 @@
                                             id="vendor-add-update-button"
                                             wire:loading.attr="disabled"
                                             wire:target="photos,addUpdate"
-                                            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
-                                        <span wire:loading.remove wire:target="photos,addUpdate">Add Update</span>
-                                        <span wire:loading wire:target="photos" class="flex items-center">
-                                            <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
-                                            Processing...
-                                        </span>
-                                        <span wire:loading wire:target="addUpdate">Saving...</span>
+                                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:bg-gray-400 disabled:cursor-not-allowed">
+                                        <span wire:loading.remove wire:target="addUpdate">Add Update</span>
+                                        <span wire:loading wire:target="addUpdate">Adding...</span>
                                     </button>
                                 </div>
                             </div>
@@ -162,222 +200,316 @@
                     </form>
                 </div>
 
-                <!-- Updates List -->
-                <div class="space-y-4">
+                <!-- Timeline Events -->
+                <div class="space-y-6">
                     @forelse($updates as $update)
-                        <div class="border-l-4 border-blue-500 pl-4 py-2">
-                            <div class="flex justify-between items-start mb-2">
-                                <div>
-                                    <span class="font-medium text-gray-900">{{ $update->user->name }}</span>
-                                    @if($update->update_type !== 'comment')
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 ml-2">
-                                            {{ ucfirst(str_replace('_', ' ', $update->update_type)) }}
-                                        </span>
-                                    @endif
-                                </div>
-                                <span class="text-sm text-gray-500">{{ $update->created_at->format('M d, Y g:i A') }}</span>
+                        <div class="flex gap-4">
+                            <div class="flex-shrink-0">
+                                @if($update->update_type === 'comment')
+                                    <span class="inline-flex items-center justify-center h-10 w-10 rounded-full bg-blue-100">
+                                        <svg class="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                                        </svg>
+                                    </span>
+                                @elseif($update->update_type === 'status_change')
+                                    <span class="inline-flex items-center justify-center h-10 w-10 rounded-full bg-green-100">
+                                        <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                        </svg>
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center justify-center h-10 w-10 rounded-full bg-gray-100">
+                                        <svg class="h-6 w-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                        </svg>
+                                    </span>
+                                @endif
                             </div>
-                            <p class="text-gray-700 mb-2">{{ $update->message }}</p>
-
-                            @if($update->photos && count($update->photos) > 0)
-                                <div class="grid grid-cols-4 gap-2 mt-2">
-                                    @foreach($update->photos as $photo)
-                                        <img src="{{ Storage::url($photo) }}" alt="Update photo"
-                                             class="w-full h-20 object-cover rounded cursor-pointer"
-                                             onclick="window.open('{{ Storage::url($photo) }}', '_blank')">
-                                    @endforeach
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between mb-1">
+                                    <p class="font-semibold text-gray-900">{{ $update->user->name ?? 'System' }}</p>
+                                    <span class="text-xs text-gray-500">{{ $update->created_at->diffForHumans() }}</span>
                                 </div>
-                            @endif
+                                <p class="text-sm text-gray-700 whitespace-pre-line">{{ $update->message }}</p>
+
+                                @if($update->photos && count($update->photos) > 0)
+                                    <div class="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
+                                        @foreach($update->photos as $photo)
+                                            <img src="{{ Storage::url($photo) }}" alt="Update photo"
+                                                 class="w-full h-24 object-cover rounded-lg cursor-pointer"
+                                                 onclick="window.open('{{ Storage::url($photo) }}', '_blank')">
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
                         </div>
                     @empty
-                        <p class="text-gray-500 text-center py-4">No updates yet.</p>
+                        <p class="text-gray-500 text-center py-6">No updates yet.</p>
                     @endforelse
-                </div>
 
-                <!-- Pagination -->
-                @if($updates->hasPages())
-                    <div class="mt-4">
-                        {{ $updates->links() }}
-                    </div>
-                @endif
-            </div>
-        </main>
-
-        <!-- Sidebar -->
-        <aside class="w-full lg:w-1/4 space-y-6 lg:sticky lg:top-10">
-            <!-- Property Info -->
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6">
-                    <h4 class="font-semibold mb-3">Property Information</h4>
-                    <dl class="space-y-2">
-                        <div>
-                            <dt class="text-sm font-medium text-gray-500">Property: {{ $maintenanceRequest->property->name }}</dt>
-                        </div>
-                        <div>
-                            <dt class="text-sm font-medium text-gray-500">Address: {{ $maintenanceRequest->property->address }}</dt>
-                        </div>
-                        @if($maintenanceRequest->unit)
-                            <div>
-                                <dt class="text-sm font-medium text-gray-500">Unit: {{ $maintenanceRequest->unit->unit_number }}</dt>
-                                <dt class="text-sm font-medium text-gray-500">Name: {{ $maintenanceRequest->tenant->name }}</dt>
-                                <dt class="text-sm font-medium text-gray-500">Phone: {{ $maintenanceRequest->tenant->phone }}</dt>
-                            </div>
-                        @endif
-                        <div>
-                            <dt class="text-sm font-medium text-gray-500">Category: {{ ucfirst($maintenanceRequest->category) }}</dt>
-                        </div>
-                    </dl>
-                </div>
-            </div>
-
-            <!-- Contact Info -->
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6">
-                    <h4 class="font-semibold mb-3">Contact Information</h4>
-                    @if($maintenanceRequest->assignedBy)
-                        <div class="space-y-2">
-                            <p class="text-sm text-gray-500">Assigned by</p>
-                            <p class="text-sm font-medium text-gray-900">{{ $maintenanceRequest->assignedBy->name }}</p>
-                            <p class="text-sm text-gray-600">{{ $maintenanceRequest->assignedBy->phone }}</p>
-                            <p class="text-sm text-gray-600">{{ $maintenanceRequest->assignedBy->email }}</p>
+                    <!-- Pagination -->
+                    @if($updates->hasPages())
+                        <div class="mt-6">
+                            {{ $updates->links() }}
                         </div>
                     @endif
                 </div>
             </div>
+        </main>
 
-            <!-- Cost Info -->
-            @if($maintenanceRequest->estimated_cost || $maintenanceRequest->actual_cost)
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="p-6">
-                        <h4 class="font-semibold mb-3">Cost Information</h4>
-                        @if($maintenanceRequest->estimated_cost)
-                            <div class="mb-2">
-                                <span class="text-sm text-gray-500">Estimated:</span>
-                                <span class="text-sm font-medium text-gray-900">${{ number_format($maintenanceRequest->estimated_cost, 2) }}</span>
-                            </div>
+        <!-- Sidebar -->
+        <aside class="lg:w-80 space-y-6">
+            <!-- Contact Info -->
+            <div class="bg-white shadow rounded-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
+
+                @if($maintenanceRequest->tenant)
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-500">Tenant</label>
+                        <p class="mt-1 text-sm text-gray-900">{{ $maintenanceRequest->tenant->name }}</p>
+                        @if($maintenanceRequest->tenant->phone)
+                            <p class="mt-1 text-sm text-blue-600">{{ $maintenanceRequest->tenant->phone }}</p>
                         @endif
-                        @if($maintenanceRequest->actual_cost)
-                            <div>
-                                <span class="text-sm text-gray-500">Actual:</span>
-                                <span class="text-sm font-medium text-gray-900">${{ number_format($maintenanceRequest->actual_cost, 2) }}</span>
-                            </div>
+                        @if($maintenanceRequest->tenant->email)
+                            <p class="mt-1 text-sm text-blue-600">{{ $maintenanceRequest->tenant->email }}</p>
                         @endif
                     </div>
+                @endif
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-500">Property Address</label>
+                    <p class="mt-1 text-sm text-gray-900">{{ $maintenanceRequest->property->address }}</p>
                 </div>
-            @endif
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="bg-white shadow rounded-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Request Details</h3>
+
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 uppercase">Category</label>
+                        <p class="mt-1 text-sm text-gray-900">{{ ucfirst($maintenanceRequest->category) }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 uppercase">Priority</label>
+                        <p class="mt-1">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-{{ $maintenanceRequest->priority_color }}-100 text-{{ $maintenanceRequest->priority_color }}-800">
+                                {{ ucfirst($maintenanceRequest->priority) }}
+                            </span>
+                        </p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 uppercase">Status</label>
+                        <p class="mt-1">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-{{ $maintenanceRequest->status_color }}-100 text-{{ $maintenanceRequest->status_color }}-800">
+                                {{ $maintenanceRequest->status_label }}
+                            </span>
+                        </p>
+                    </div>
+                    @if($maintenanceRequest->assigned_at)
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 uppercase">Assigned</label>
+                            <p class="mt-1 text-sm text-gray-900">{{ $maintenanceRequest->assigned_at->format('M d, Y') }}</p>
+                        </div>
+                    @endif
+                    @if($maintenanceRequest->accepted_at)
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 uppercase">Accepted</label>
+                            <p class="mt-1 text-sm text-gray-900">{{ $maintenanceRequest->accepted_at->format('M d, Y g:i A') }}</p>
+                        </div>
+                    @endif
+                </div>
+            </div>
         </aside>
     </div>
 
-    <!-- Complete Work Modal -->
-    @if($showCompleteModal)
-        <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div class="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
-                <h3 class="text-lg font-medium text-gray-900 mb-4">Complete Work</h3>
+    <!-- Rejection Modal -->
+    @if($showRejectModal)
+    <div class="fixed inset-0 z-50 overflow-y-auto" x-data="{ show: @entangle('showRejectModal') }">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+            <!-- Overlay -->
+            <div x-show="show"
+                 x-transition:enter="ease-out duration-300"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="ease-in duration-200"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+                 @click="$wire.set('showRejectModal', false)"></div>
 
-                <form wire:submit.prevent="completeWork">
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Completion Notes *</label>
-                        <textarea wire:model="completionNotes" rows="4"
-                                  placeholder="Describe the work completed, parts used, etc."
-                                  class="w-full border border-gray-300 rounded-md px-3 py-2"></textarea>
-                        @error('completionNotes') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
-                    </div>
+            <!-- Modal Content -->
+            <div x-show="show"
+                 x-transition:enter="ease-out duration-300"
+                 x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave="ease-in duration-200"
+                 x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 class="relative inline-block w-full max-w-lg my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
 
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Actual Cost</label>
-                        <input type="number" step="0.01" wire:model="actualCost"
-                               placeholder="0.00"
-                               class="w-full border border-gray-300 rounded-md px-3 py-2">
-                        @error('actualCost') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Completion Photos</label>
-                        <input type="file"
-                               wire:model="completionPhotos"
-                               multiple
-                               accept="image/*"
-                               id="completion-photo-upload"
-                               class="w-full border border-gray-300 rounded-md px-3 py-2">
-
-                        <!-- Client-side error message -->
-                        <div id="completion-file-size-error" class="hidden bg-red-50 border border-red-200 rounded-md p-2 text-red-800 text-xs mt-2">
-                            <div class="flex items-start">
-                                <svg class="h-4 w-4 text-red-400 mr-1 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
-                                </svg>
-                                <div id="completion-file-size-error-message" class="flex-1"></div>
-                            </div>
-                        </div>
-
-                        <div wire:loading wire:target="completionPhotos" class="flex items-center text-blue-600 text-sm mt-1">
-                            <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <!-- Header -->
+                <div class="px-6 py-4 bg-red-50 border-b border-red-100">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-red-900">Reject Assignment</h3>
+                        <button wire:click="$set('showRejectModal', false)" class="text-red-400 hover:text-red-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                             </svg>
-                            Uploading photos...
-                        </div>
+                        </button>
+                    </div>
+                </div>
 
-                        @if(is_array($completionPhotos) && count($completionPhotos) > 0)
-                            <div wire:loading.remove wire:target="completionPhotos" class="text-green-600 text-sm mt-1">
-                                ✓ {{ count($completionPhotos) }} photo(s) ready
+                <!-- Body -->
+                <div class="px-6 py-4">
+                    <p class="text-sm text-gray-600 mb-4">
+                        Please select a reason for rejecting this assignment. This will help the property manager find another vendor quickly.
+                    </p>
+
+                    <!-- Preset Reasons -->
+                    <div class="space-y-2 mb-4">
+                        <label class="flex items-start cursor-pointer hover:bg-gray-50 p-2 rounded">
+                            <input type="radio" wire:model="rejectionReason" value="too_busy"
+                                   class="mt-1 mr-3 text-red-600 focus:ring-red-500">
+                            <div>
+                                <span class="text-sm font-medium text-gray-900">Currently too busy / Fully booked</span>
+                                <p class="text-xs text-gray-500">You don't have capacity to take on this work</p>
                             </div>
-                        @endif
+                        </label>
 
-                        @error('completionPhotos.*') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                        <label class="flex items-start cursor-pointer hover:bg-gray-50 p-2 rounded">
+                            <input type="radio" wire:model="rejectionReason" value="out_of_area"
+                                   class="mt-1 mr-3 text-red-600 focus:ring-red-500">
+                            <div>
+                                <span class="text-sm font-medium text-gray-900">Property location outside service area</span>
+                                <p class="text-xs text-gray-500">This location is too far from your service area</p>
+                            </div>
+                        </label>
+
+                        <label class="flex items-start cursor-pointer hover:bg-gray-50 p-2 rounded">
+                            <input type="radio" wire:model="rejectionReason" value="lacks_expertise"
+                                   class="mt-1 mr-3 text-red-600 focus:ring-red-500">
+                            <div>
+                                <span class="text-sm font-medium text-gray-900">Requires specialized expertise</span>
+                                <p class="text-xs text-gray-500">This work requires skills you don't have</p>
+                            </div>
+                        </label>
+
+                        <label class="flex items-start cursor-pointer hover:bg-gray-50 p-2 rounded">
+                            <input type="radio" wire:model="rejectionReason" value="emergency_unavailable"
+                                   class="mt-1 mr-3 text-red-600 focus:ring-red-500">
+                            <div>
+                                <span class="text-sm font-medium text-gray-900">Cannot handle emergency priority</span>
+                                <p class="text-xs text-gray-500">Unable to respond to emergency timing</p>
+                            </div>
+                        </label>
+
+                        <label class="flex items-start cursor-pointer hover:bg-gray-50 p-2 rounded">
+                            <input type="radio" wire:model="rejectionReason" value="insufficient_info"
+                                   class="mt-1 mr-3 text-red-600 focus:ring-red-500">
+                            <div>
+                                <span class="text-sm font-medium text-gray-900">Insufficient information</span>
+                                <p class="text-xs text-gray-500">Need more details to assess the job</p>
+                            </div>
+                        </label>
+
+                        <label class="flex items-start cursor-pointer hover:bg-gray-50 p-2 rounded">
+                            <input type="radio" wire:model="rejectionReason" value="other"
+                                   class="mt-1 mr-3 text-red-600 focus:ring-red-500">
+                            <div>
+                                <span class="text-sm font-medium text-gray-900">Other reason</span>
+                                <p class="text-xs text-gray-500">Specify in the notes below</p>
+                            </div>
+                        </label>
                     </div>
 
-                    <div class="flex justify-end space-x-2">
-                        <button type="button" wire:click="$set('showCompleteModal', false)"
-                                class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
-                            Cancel
-                        </button>
-                        <button type="submit"
-                                id="complete-work-button"
-                                wire:loading.attr="disabled"
-                                wire:target="completionPhotos,completeWork"
-                                class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50">
-                            <span wire:loading.remove wire:target="completionPhotos,completeWork">Complete Work</span>
-                            <span wire:loading>Processing...</span>
-                        </button>
+                    @error('rejectionReason')
+                        <p class="text-red-600 text-sm mb-3 bg-red-50 border border-red-200 rounded-md p-2">{{ $message }}</p>
+                    @enderror
+
+                    <!-- Additional Notes -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Additional Notes (Optional)
+                        </label>
+                        <textarea wire:model="rejectionNotes" rows="3"
+                                  placeholder="Provide any additional details that might help..."
+                                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"></textarea>
+                        <p class="text-xs text-gray-500 mt-1">Max 500 characters</p>
+                        @error('rejectionNotes')
+                            <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                        @enderror
                     </div>
-                </form>
+                </div>
+
+                <!-- Footer -->
+                <div class="px-6 py-4 bg-gray-50 border-t flex gap-3">
+                    <button wire:click="confirmRejection"
+                            wire:loading.attr="disabled"
+                            class="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                        <span wire:loading.remove wire:target="confirmRejection">Confirm Rejection</span>
+                        <span wire:loading wire:target="confirmRejection">Rejecting...</span>
+                    </button>
+                    <button wire:click="$set('showRejectModal', false)"
+                            type="button"
+                            class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors">
+                        Cancel
+                    </button>
+                </div>
             </div>
         </div>
+    </div>
     @endif
-</div>{{-- Close root Livewire div HERE --}}
+</div>{{-- End root Livewire div HERE --}}
 
-<!-- Inline Script for File Validation -->
+<!-- Success/Error Messages -->
+@if (session()->has('message'))
+    <div class="fixed bottom-4 right-4 bg-green-50 border border-green-200 rounded-lg p-4 shadow-lg z-50" x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 5000)">
+        <div class="flex items-center">
+            <svg class="h-5 w-5 text-green-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+            <p class="text-green-800 font-medium">{{ session('message') }}</p>
+        </div>
+    </div>
+@endif
+
+@if (session()->has('error'))
+    <div class="fixed bottom-4 right-4 bg-red-50 border border-red-200 rounded-lg p-4 shadow-lg z-50" x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 5000)">
+        <div class="flex items-center">
+            <svg class="h-5 w-5 text-red-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+            </svg>
+            <p class="text-red-800 font-medium">{{ session('error') }}</p>
+        </div>
+    </div>
+@endif
+
 <script>
 (function() {
     'use strict';
 
     const MAX_FILE_SIZE_MB = 5;
-    const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
     const MAX_TOTAL_SIZE_MB = 30;
+    const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
     const MAX_TOTAL_SIZE_BYTES = MAX_TOTAL_SIZE_MB * 1024 * 1024;
 
-    let hasUploadError = false;
     let isUploading = false;
-
-    console.log('🔍 Vendor file upload validation loaded');
-    console.log('📏 Limits: Individual=' + MAX_FILE_SIZE_MB + 'MB, Total=' + MAX_TOTAL_SIZE_MB + 'MB');
+    let hasUploadError = false;
 
     function toggleButton(buttonId, disable, reason) {
         const button = document.getElementById(buttonId);
-        console.log('🎯 Toggle ' + buttonId + ' - disable:', disable, 'reason:', reason);
+        if (!button) return;
 
-        if (button) {
-            button.disabled = disable;
-            if (disable) {
-                button.classList.add('opacity-50', 'cursor-not-allowed', '!bg-gray-400');
-                button.classList.remove('hover:bg-blue-700', 'hover:bg-green-700');
-                console.log('🔒 Button DISABLED (' + reason + ')');
-            } else {
-                button.classList.remove('opacity-50', 'cursor-not-allowed', '!bg-gray-400');
-                button.classList.add('hover:bg-blue-700');
-                console.log('🔓 Button ENABLED (' + reason + ')');
-            }
+        if (disable) {
+            button.disabled = true;
+            button.classList.add('opacity-50', 'cursor-not-allowed');
+            console.log('🔒 Button DISABLED (' + reason + ')');
+        } else {
+            button.disabled = false;
+            button.classList.remove('opacity-50', 'cursor-not-allowed');
+            console.log('🔓 Button ENABLED (' + reason + ')');
         }
     }
 
@@ -459,7 +591,6 @@
 
     function setup() {
         validateFileInput('vendor-photo-upload', 'vendor-file-size-error', 'vendor-file-size-error-message', 'vendor-success-message', 'vendor-add-update-button');
-        validateFileInput('completion-photo-upload', 'completion-file-size-error', 'completion-file-size-error-message', null, 'complete-work-button');
     }
 
     if (document.readyState === 'loading') {
@@ -471,12 +602,10 @@
     document.addEventListener('livewire:init', function() {
         console.log('🔌 Livewire init - vendor view');
 
-        // Simpler approach: Listen for wire:upload-* events
         document.addEventListener('livewire:upload-start', function(event) {
             console.log('📤 Upload started (event)');
             isUploading = true;
             toggleButton('vendor-add-update-button', true, 'upload in progress');
-            toggleButton('complete-work-button', true, 'upload in progress');
         });
 
         document.addEventListener('livewire:upload-finish', function(event) {
@@ -484,7 +613,6 @@
             isUploading = false;
             if (!hasUploadError) {
                 toggleButton('vendor-add-update-button', false, 'upload complete');
-                toggleButton('complete-work-button', false, 'upload complete');
             }
         });
 
@@ -493,10 +621,8 @@
             isUploading = false;
             hasUploadError = true;
             toggleButton('vendor-add-update-button', true, 'upload error');
-            toggleButton('complete-work-button', true, 'upload error');
         });
 
-        // Handle 413 errors
         Livewire.hook('request', ({ fail }) => {
             fail(({ status, preventDefault }) => {
                 if (status === 413) {
@@ -505,17 +631,14 @@
                     hasUploadError = true;
                     isUploading = false;
 
-                    ['vendor-file-size-error', 'completion-file-size-error'].forEach(errorDivId => {
-                        const errorDiv = document.getElementById(errorDivId);
-                        const errorMessage = document.getElementById(errorDivId + '-message');
-                        if (errorDiv && errorMessage) {
-                            errorMessage.innerHTML = '<p class="font-semibold mb-1">⚠️ 413: Too Large</p><p>Server rejected. Total > ' + MAX_TOTAL_SIZE_MB + 'MB</p><p class="text-xs mt-1">💡 Upload fewer files or compress</p>';
-                            errorDiv.classList.remove('hidden');
-                        }
-                    });
+                    const errorDiv = document.getElementById('vendor-file-size-error');
+                    const errorMessage = document.getElementById('vendor-file-size-error-message');
+                    if (errorDiv && errorMessage) {
+                        errorMessage.innerHTML = '<p class="font-semibold mb-1">⚠️ 413: Too Large</p><p>Server rejected. Total > ' + MAX_TOTAL_SIZE_MB + 'MB</p><p class="text-xs mt-1">💡 Upload fewer files or compress</p>';
+                        errorDiv.classList.remove('hidden');
+                    }
 
                     toggleButton('vendor-add-update-button', true, '413 error');
-                    toggleButton('complete-work-button', true, '413 error');
                 }
             });
         });

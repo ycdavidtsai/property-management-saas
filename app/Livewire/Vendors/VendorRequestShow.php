@@ -4,6 +4,7 @@ namespace App\Livewire\Vendors;
 
 use App\Models\MaintenanceRequest;
 use App\Models\MaintenanceRequestUpdate;
+use App\Services\NotificationService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -22,6 +23,11 @@ class VendorRequestShow extends Component
     public $completionNotes = '';
     public $completionPhotos = [];
 
+    // NEW: Acceptance/Rejection properties
+    public $showRejectModal = false;
+    public $rejectionReason = '';
+    public $rejectionNotes = '';
+
     protected $rules = [
         'message' => 'required|string|max:1000',
         'photos.*' => 'nullable|image|max:5120', // 5MB max
@@ -38,6 +44,180 @@ class VendorRequestShow extends Component
         // Initialize arrays to prevent null errors
         $this->photos = [];
         $this->completionPhotos = [];
+    }
+
+    /**
+     * NEW: Vendor accepts the assignment
+     */
+    public function acceptAssignment()
+    {
+        // Verify authorization
+        $this->authorize('updateStatus', $this->maintenanceRequest);
+
+        // Verify status is pending_acceptance
+        if ($this->maintenanceRequest->status !== 'pending_acceptance') {
+            session()->flash('error', 'This request is no longer pending acceptance.');
+            return;
+        }
+
+        // Update status to assigned
+        $this->maintenanceRequest->update([
+            'status' => 'assigned',
+            'accepted_at' => now(),
+        ]);
+
+        // Create timeline entry (public - visible to everyone)
+        MaintenanceRequestUpdate::create([
+            'maintenance_request_id' => $this->maintenanceRequest->id,
+            'user_id' => Auth::id(),
+            'update_type' => 'status_change',
+            'message' => Auth::user()->name . ' accepted the assignment',
+            'is_internal' => false,
+        ]);
+
+        // Notify tenant about acceptance
+        if ($this->maintenanceRequest->tenant) {
+            try {
+                $vendorName = Auth::user()->name;
+
+                app(NotificationService::class)->send(
+                    $this->maintenanceRequest->tenant,
+                    'Vendor Assigned to Your Request',
+                    "Good news! {$vendorName} has accepted your maintenance request and will begin work soon.\n\n" .
+                    "Request: {$this->maintenanceRequest->title}\n" .
+                    "Priority: " . ucfirst($this->maintenanceRequest->priority),
+                    ['email', 'sms'],
+                    'maintenance',
+                    $this->maintenanceRequest
+                );
+            } catch (\Exception $e) {
+                Log::error('Failed to send acceptance notification to tenant', [
+                    'error' => $e->getMessage(),
+                    'request_id' => $this->maintenanceRequest->id,
+                ]);
+            }
+        }
+
+        // Notify property manager/landlord about acceptance
+        $managers = $this->maintenanceRequest->organization->users()
+            ->whereIn('role', ['admin', 'manager', 'landlord'])
+            ->get();
+
+        foreach ($managers as $manager) {
+            try {
+                $vendorName = Auth::user()->name;
+
+                app(NotificationService::class)->send(
+                    $manager,
+                    'Vendor Accepted Assignment',
+                    "{$vendorName} has accepted the maintenance request for {$this->maintenanceRequest->property->name}.\n\n" .
+                    "Request: {$this->maintenanceRequest->title}",
+                    ['email'],
+                    'maintenance',
+                    $this->maintenanceRequest
+                );
+            } catch (\Exception $e) {
+                Log::error('Failed to send acceptance notification to manager', [
+                    'error' => $e->getMessage(),
+                    'manager_id' => $manager->id,
+                ]);
+            }
+        }
+
+        session()->flash('success', 'Assignment accepted! You can now start work when ready.');
+        $this->maintenanceRequest->refresh();
+    }
+
+    /**
+     * NEW: Confirm rejection with reason
+     */
+    public function confirmRejection()
+    {
+        $this->validate([
+            'rejectionReason' => 'required|string',
+            'rejectionNotes' => 'nullable|string|max:500',
+        ], [
+            'rejectionReason.required' => 'Please select a reason for rejection.',
+        ]);
+
+        // Verify authorization
+        $this->authorize('updateStatus', $this->maintenanceRequest);
+
+        // Verify status
+        if ($this->maintenanceRequest->status !== 'pending_acceptance') {
+            session()->flash('error', 'This request is no longer pending acceptance.');
+            return;
+        }
+
+        $vendorName = Auth::user()->name;
+
+        // Store rejection info and revert to submitted status
+        $this->maintenanceRequest->update([
+            'status' => 'submitted', // Back to unassigned (using your status name)
+            'assigned_vendor_id' => null,
+            'assigned_at' => null,
+            'rejection_reason' => $this->rejectionReason,
+            'rejection_notes' => $this->rejectionNotes,
+            'rejected_at' => now(),
+            'rejected_by' => Auth::id(),
+        ]);
+
+        // Build rejection description
+        $reasonMap = [
+            'too_busy' => 'Currently too busy / Fully booked',
+            'out_of_area' => 'Property location outside service area',
+            'lacks_expertise' => 'Requires specialized expertise',
+            'emergency_unavailable' => 'Cannot handle emergency priority at this time',
+            'insufficient_info' => 'Insufficient information to assess job',
+            'other' => 'Other reason',
+        ];
+
+        $reasonText = $reasonMap[$this->rejectionReason] ?? $this->rejectionReason;
+        $description = "{$vendorName} rejected the assignment\nReason: {$reasonText}";
+
+        if ($this->rejectionNotes) {
+            $description .= "\nNotes: {$this->rejectionNotes}";
+        }
+
+        // Create timeline entry (PRIVATE - only visible to managers/landlords)
+        MaintenanceRequestUpdate::create([
+            'maintenance_request_id' => $this->maintenanceRequest->id,
+            'user_id' => Auth::id(),
+            'update_type' => 'status_change',
+            'message' => $description,
+            'is_internal' => true, // Private note
+        ]);
+
+        // Notify property manager/landlord about rejection
+        $managers = $this->maintenanceRequest->organization->users()
+            ->whereIn('role', ['admin', 'manager', 'landlord'])
+            ->get();
+
+        foreach ($managers as $manager) {
+            try {
+                app(NotificationService::class)->send(
+                    $manager,
+                    'Vendor Rejected Assignment',
+                    "{$vendorName} declined the maintenance request for {$this->maintenanceRequest->property->name}.\n\n" .
+                    "Request: {$this->maintenanceRequest->title}\n" .
+                    "Reason: {$reasonText}" .
+                    ($this->rejectionNotes ? "\nNotes: {$this->rejectionNotes}" : ""),
+                    ['email'],
+                    'maintenance',
+                    $this->maintenanceRequest
+                );
+            } catch (\Exception $e) {
+                Log::error('Failed to send rejection notification to manager', [
+                    'error' => $e->getMessage(),
+                    'manager_id' => $manager->id,
+                ]);
+            }
+        }
+
+        session()->flash('success', 'Assignment rejected. The property manager has been notified and will assign another vendor.');
+
+        // Redirect back to vendor dashboard
+        return redirect()->route('vendor.dashboard');
     }
 
     public function addUpdate()
@@ -75,12 +255,6 @@ class VendorRequestShow extends Component
 
     public function updateStatus($newStatus)
     {
-
-        // Log::info('VendorRequestShow:updateStatus START', [
-        //     'newStatus' => $newStatus,
-        //     'showCompleteModal_before' => $this->showCompleteModal,
-        // ]);
-
         $this->authorize('updateStatus', $this->maintenanceRequest);
 
         $allowedTransitions = [
@@ -99,16 +273,16 @@ class VendorRequestShow extends Component
         // If transitioning to completed, show modal for completion details
         if ($newStatus === 'completed') {
             $this->showCompleteModal = true;
-
-            // Log::info('VendorRequestShow:updateStatus SET MODAL', [
-            //     'showCompleteModal_after' => $this->showCompleteModal,
-            // ]);
-
             return;
         }
 
         // Update status
         $this->maintenanceRequest->update(['status' => $newStatus]);
+
+        // For in_progress, set started_at timestamp
+        if ($newStatus === 'in_progress') {
+            $this->maintenanceRequest->update(['started_at' => now()]);
+        }
 
         // Create timeline entry
         MaintenanceRequestUpdate::create([

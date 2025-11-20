@@ -49,7 +49,7 @@ class MaintenanceRequestShow extends Component
         if (Auth::user()->role !== 'admin') {
             $this->authorize('view', $request);
         }
-        
+
         $this->request = $request;
 
         // Pre-select current vendor if assigned
@@ -127,7 +127,7 @@ public function assignVendor()
         'assigned_by' => Auth::id(),
         'assignment_notes' => $this->assignmentNotes,
         'status' => $isNewAssignment && $this->request->status === 'submitted'
-            ? 'assigned'
+            ? 'pending_acceptance' // DT changed from 'assigned'
             : $this->request->status,
     ]);
 
