@@ -461,6 +461,135 @@
         </div>
     </div>
     @endif
+
+    <!-- Completion Modal -->
+    @if($showCompleteModal)
+    <div class="fixed inset-0 z-50 overflow-y-auto" x-data="{ show: @entangle('showCompleteModal') }">
+        <!-- Background overlay -->
+        <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity"></div>
+
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <!-- Backdrop click to close -->
+            <div class="fixed inset-0"
+                 @click="$wire.set('showCompleteModal', false)"></div>
+
+            <!-- Modal Content -->
+            <div class="relative bg-white rounded-lg shadow-xl max-w-lg w-full mx-auto z-10">
+                <!-- Header -->
+                <div class="bg-green-50 px-6 py-4 border-b border-green-100 rounded-t-lg">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-green-100 rounded-full p-2 mr-3">
+                                <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-lg font-semibold text-green-900">Complete Work</h3>
+                        </div>
+                        <button wire:click="$set('showCompleteModal', false)" class="text-green-400 hover:text-green-600">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Body -->
+                <div class="px-6 py-4 space-y-4">
+                    <p class="text-sm text-gray-600">
+                        Please provide details about the completed work.
+                    </p>
+
+                    <!-- Completion Notes -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Completion Notes <span class="text-red-500">*</span>
+                        </label>
+                        <textarea wire:model="completionNotes" rows="4"
+                                  placeholder="Describe the work completed, any parts used, and other relevant details..."
+                                  class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-green-500 focus:border-green-500"></textarea>
+                        @error('completionNotes')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <!-- Actual Cost -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Actual Cost (Optional)
+                        </label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-2 text-gray-500">$</span>
+                            <input type="number" wire:model="actualCost" step="0.01" min="0"
+                                   placeholder="0.00"
+                                   class="w-full border border-gray-300 rounded-md pl-7 pr-3 py-2 focus:ring-green-500 focus:border-green-500">
+                        </div>
+                        @error('actualCost')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                        @if($maintenanceRequest->estimated_cost)
+                            <p class="mt-1 text-xs text-gray-500">
+                                Estimated cost: ${{ number_format($maintenanceRequest->estimated_cost, 2) }}
+                            </p>
+                        @endif
+                    </div>
+
+                    <!-- Completion Photos -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Completion Photos (Optional)
+                        </label>
+                        <input type="file" wire:model="completionPhotos" multiple accept="image/*"
+                               id="completion-photo-upload"
+                               class="text-sm w-full border border-gray-300 rounded-md px-3 py-2">
+
+                        <!-- Upload Progress -->
+                        <div wire:loading wire:target="completionPhotos" class="flex items-center text-blue-600 text-sm mt-1">
+                            <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Uploading photos...
+                        </div>
+
+                        @error('completionPhotos.*')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                        <p class="text-xs text-gray-500 mt-1">Maximum 5MB per image</p>
+
+                        <!-- Photo Preview -->
+                        @if($completionPhotos && count($completionPhotos) > 0)
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                @foreach($completionPhotos as $photo)
+                                    <div class="relative">
+                                        <img src="{{ $photo->temporaryUrl() }}"
+                                             class="h-16 w-16 object-cover rounded-lg border">
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="px-6 py-4 bg-gray-50 border-t rounded-b-lg flex gap-3">
+                    <button wire:click="completeWork"
+                            wire:loading.attr="disabled"
+                            wire:loading.class="opacity-50 cursor-not-allowed"
+                            class="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                        <span wire:loading.remove wire:target="completeWork">Mark as Completed</span>
+                        <span wire:loading wire:target="completeWork">Completing...</span>
+                    </button>
+                    <button wire:click="$set('showCompleteModal', false)"
+                            type="button"
+                            class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
 </div>{{-- End root Livewire div HERE --}}
 
 <!-- Success/Error Messages -->
