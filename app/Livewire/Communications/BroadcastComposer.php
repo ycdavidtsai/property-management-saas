@@ -11,9 +11,14 @@ use Illuminate\Support\Facades\Auth;
 
 class BroadcastComposer extends Component
 {
+    // SMS character limits based on Twilio recommendations
+    const SMS_RECOMMENDED_LIMIT = 320;      // Twilio recommended max
+    const SMS_SINGLE_SEGMENT = 160;         // Single SMS segment
+    const SMS_ABSOLUTE_MAX = 1600;          // Twilio absolute max
+
     public $title = '';
     public $message = '';
-    public $channels = ['email'];
+    public $channel = 'email';              // Changed from array to single value (either/or)
     public $recipientType = 'all_tenants';
     public $selectedProperties = [];
     public $selectedUnits = [];
@@ -22,29 +27,102 @@ class BroadcastComposer extends Component
     public $recipientCount = 0;
     public $showPreview = false;
 
-    protected $rules = [
-        'title' => 'required|string|max:255',
-        'message' => 'required|string|min:10',
-        'channels' => 'required|array|min:1',
-        'recipientType' => 'required|in:all_tenants,property,unit,specific_users',
-    ];
+    // Character count tracking
+    public $characterCount = 0;
+    public $segmentCount = 1;
+
+    protected function rules()
+    {
+        $messageMaxLength = $this->channel === 'sms' ? self::SMS_RECOMMENDED_LIMIT : 10000;
+
+        return [
+            'title' => 'required|string|max:255',
+            'message' => "required|string|min:10|max:{$messageMaxLength}",
+            'channel' => 'required|in:email,sms',
+            'recipientType' => 'required|in:all_tenants,property,unit,specific_users',
+        ];
+    }
 
     protected $messages = [
         'title.required' => 'Please enter a title for your message.',
         'message.required' => 'Please enter your message content.',
         'message.min' => 'Message must be at least 10 characters.',
-        'channels.required' => 'Please select at least one channel (Email or SMS).',
+        'message.max' => 'Message exceeds the maximum length for the selected channel.',
+        'channel.required' => 'Please select a delivery channel (Email or SMS).',
     ];
 
     public function mount()
     {
-        // Default to email only
-        $this->channels = ['email'];
+        $this->channel = 'email';
+        $this->updateCharacterCount();
+    }
+
+    /**
+     * When channel changes, validate message length for SMS
+     */
+    public function updatedChannel($value)
+    {
+        $this->updateCharacterCount();
+
+        // Clear validation errors when switching channels
+        $this->resetErrorBag('message');
+
+        // If switching to SMS and message is too long, show warning
+        if ($value === 'sms' && strlen($this->message) > self::SMS_RECOMMENDED_LIMIT) {
+            $this->addError('message', 'Your message exceeds the recommended SMS limit of ' . self::SMS_RECOMMENDED_LIMIT . ' characters. Please shorten it or switch to Email.');
+        }
+    }
+
+    /**
+     * Update character count when message changes
+     */
+    public function updatedMessage($value)
+    {
+        $this->updateCharacterCount();
+    }
+
+    /**
+     * Calculate character count and SMS segments
+     */
+    protected function updateCharacterCount()
+    {
+        $this->characterCount = strlen($this->message);
+
+        // Calculate SMS segments (160 chars for first, 153 for subsequent due to headers)
+        if ($this->characterCount <= 160) {
+            $this->segmentCount = 1;
+        } else {
+            $this->segmentCount = ceil(($this->characterCount) / 153);
+        }
+    }
+
+    /**
+     * Get the character limit based on selected channel
+     */
+    public function getCharacterLimitProperty()
+    {
+        return $this->channel === 'sms' ? self::SMS_RECOMMENDED_LIMIT : 10000;
+    }
+
+    /**
+     * Get remaining characters
+     */
+    public function getRemainingCharactersProperty()
+    {
+        $limit = $this->channel === 'sms' ? self::SMS_RECOMMENDED_LIMIT : 10000;
+        return $limit - $this->characterCount;
+    }
+
+    /**
+     * Check if message is over SMS limit
+     */
+    public function getIsOverSmsLimitProperty()
+    {
+        return $this->channel === 'sms' && $this->characterCount > self::SMS_RECOMMENDED_LIMIT;
     }
 
     public function updatedRecipientType()
     {
-        // Clear selections when recipient type changes
         $this->selectedProperties = [];
         $this->selectedUnits = [];
         $this->selectedUsers = [];
@@ -93,6 +171,12 @@ class BroadcastComposer extends Component
     {
         $this->validate();
 
+        // Additional SMS validation
+        if ($this->channel === 'sms' && $this->characterCount > self::SMS_RECOMMENDED_LIMIT) {
+            $this->addError('message', 'SMS messages must be ' . self::SMS_RECOMMENDED_LIMIT . ' characters or less. Current: ' . $this->characterCount);
+            return;
+        }
+
         if ($this->recipientCount === 0) {
             $this->previewRecipientsList();
 
@@ -106,24 +190,28 @@ class BroadcastComposer extends Component
 
         $filters = $this->buildFilters();
 
+        // Convert single channel to array for BroadcastService compatibility
+        $channels = [$this->channel];
+
         $broadcast = $broadcastService->createBroadcast(
             Auth::user(),
             $this->title,
             $this->message,
-            $this->channels,
+            $channels,
             $this->recipientType,
             $filters
         );
 
-        session()->flash('message', "Broadcast message sent successfully to {$broadcast->recipient_count} recipients!");
+        $channelLabel = $this->channel === 'email' ? 'email' : 'SMS';
+        session()->flash('message', "Broadcast {$channelLabel} sent successfully to {$broadcast->recipient_count} recipients!");
 
-        // Emit event for parent components
         $this->dispatch('broadcast-sent', ['broadcast_id' => $broadcast->id]);
 
         // Reset form
-        $this->reset(['title', 'message', 'selectedProperties', 'selectedUnits', 'selectedUsers', 'previewRecipients', 'recipientCount', 'showPreview']);
-        $this->channels = ['email'];
+        $this->reset(['title', 'message', 'selectedProperties', 'selectedUnits', 'selectedUsers', 'previewRecipients', 'recipientCount', 'showPreview', 'characterCount']);
+        $this->channel = 'email';
         $this->recipientType = 'all_tenants';
+        $this->segmentCount = 1;
     }
 
     protected function buildFilters(): ?array
@@ -178,6 +266,8 @@ class BroadcastComposer extends Component
             'properties' => $properties,
             'units' => $units,
             'tenants' => $tenants,
+            'smsLimit' => self::SMS_RECOMMENDED_LIMIT,
+            'smsSegmentSize' => self::SMS_SINGLE_SEGMENT,
         ]);
     }
 }

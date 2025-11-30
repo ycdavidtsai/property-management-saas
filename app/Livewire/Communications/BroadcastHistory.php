@@ -3,6 +3,7 @@
 namespace App\Livewire\Communications;
 
 use App\Models\BroadcastMessage;
+use App\Services\BroadcastService;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Illuminate\Support\Facades\Auth;
@@ -11,102 +12,105 @@ class BroadcastHistory extends Component
 {
     use WithPagination;
 
+    public $filterChannel = '';
+    public $filterStatus = '';
+    public $filterDateFrom = '';
+    public $filterDateTo = '';
+
     public $selectedBroadcast = null;
-    public $showDetails = false;
-    public $filters = [
-        'status' => '',
-        'channel' => '',
-        'date_from' => '',
-        'date_to' => '',
+
+    protected $queryString = [
+        'filterChannel' => ['except' => ''],
+        'filterStatus' => ['except' => ''],
+        'filterDateFrom' => ['except' => ''],
+        'filterDateTo' => ['except' => ''],
     ];
 
-    protected $queryString = ['filters'];
-
-    public function updatingFilters()
+    public function updatedFilterChannel()
     {
         $this->resetPage();
     }
 
-    // public function viewDetails($broadcastId)
-    // {
-    //     $this->selectedBroadcast = BroadcastMessage::with(['sender', 'notifications'])
-    //         ->where('organization_id', Auth::user()->organization_id)
-    //         ->findOrFail($broadcastId);
+    public function updatedFilterStatus()
+    {
+        $this->resetPage();
+    }
 
-    //     $this->showDetails = true;
-    // }
+    public function updatedFilterDateFrom()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterDateTo()
+    {
+        $this->resetPage();
+    }
+
+    public function resetFilters()
+    {
+        $this->reset(['filterChannel', 'filterStatus', 'filterDateFrom', 'filterDateTo']);
+        $this->resetPage();
+    }
 
     public function viewDetails($broadcastId)
     {
-        $this->selectedBroadcast = BroadcastMessage::with([
-            'sender',
-            'notifications.toUser' // ← Load the actual recipient users
-        ])
-        ->where('organization_id', Auth::user()->organization_id)
-        ->findOrFail($broadcastId);
-
-        $this->showDetails = true;
+        $this->selectedBroadcast = BroadcastMessage::with('sender')
+            ->where('organization_id', Auth::user()->organization_id)
+            ->find($broadcastId);
     }
 
     public function closeDetails()
     {
         $this->selectedBroadcast = null;
-        $this->showDetails = false;
     }
 
     public function deleteBroadcast($broadcastId)
     {
         $broadcast = BroadcastMessage::where('organization_id', Auth::user()->organization_id)
-            ->findOrFail($broadcastId);
+            ->whereIn('status', ['draft', 'failed'])
+            ->find($broadcastId);
 
-        // Only allow deleting draft or failed broadcasts
-        if (in_array($broadcast->status, ['draft', 'failed'])) {
+        if ($broadcast) {
             $broadcast->delete();
             session()->flash('message', 'Broadcast deleted successfully.');
-            $this->closeDetails();
-        } else {
-            session()->flash('error', 'Cannot delete sent broadcasts.');
         }
-    }
-
-    public function resetFilters()
-    {
-        $this->filters = [
-            'status' => '',
-            'channel' => '',
-            'date_from' => '',
-            'date_to' => '',
-        ];
-        $this->resetPage();
     }
 
     public function render()
     {
-        $query = BroadcastMessage::where('organization_id', Auth::user()->organization_id)
-            ->with('sender')
+        $query = BroadcastMessage::with('sender')
+            ->where('organization_id', Auth::user()->organization_id)
             ->orderBy('created_at', 'desc');
 
         // Apply filters
-        if ($this->filters['status']) {
-            $query->where('status', $this->filters['status']);
+        if ($this->filterChannel === 'email') {
+            $query->whereJsonContains('channels', 'email')
+                  ->whereJsonDoesntContain('channels', 'sms');
+        } elseif ($this->filterChannel === 'sms') {
+            $query->whereJsonContains('channels', 'sms');
         }
 
-        if ($this->filters['channel']) {
-            $query->whereJsonContains('channels', $this->filters['channel']);
+        if ($this->filterStatus) {
+            $query->where('status', $this->filterStatus);
         }
 
-        if ($this->filters['date_from']) {
-            $query->whereDate('created_at', '>=', $this->filters['date_from']);
+        if ($this->filterDateFrom) {
+            $query->whereDate('sent_at', '>=', $this->filterDateFrom);
         }
 
-        if ($this->filters['date_to']) {
-            $query->whereDate('created_at', '<=', $this->filters['date_to']);
+        if ($this->filterDateTo) {
+            $query->whereDate('sent_at', '<=', $this->filterDateTo);
         }
 
-        $broadcasts = $query->paginate(10);
+        $broadcasts = $query->paginate(15);
+
+        // Get current month SMS usage
+        $broadcastService = app(BroadcastService::class);
+        $currentMonthUsage = $broadcastService->getCurrentMonthSmsUsage(Auth::user()->organization_id);
 
         return view('livewire.communications.broadcast-history', [
             'broadcasts' => $broadcasts,
+            'currentMonthUsage' => $currentMonthUsage,
         ]);
     }
 }

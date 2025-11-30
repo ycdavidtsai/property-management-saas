@@ -11,9 +11,62 @@ class BroadcastService
 {
     protected NotificationService $notificationService;
 
+    // SMS segment constants (Twilio standards)
+    const SMS_SINGLE_SEGMENT_LIMIT = 160;       // Max chars for 1 segment
+    const SMS_CONCAT_SEGMENT_SIZE = 153;        // Chars per segment when concatenated
+    const SMS_UNICODE_SINGLE_LIMIT = 70;        // Max chars for 1 segment with unicode
+    const SMS_UNICODE_CONCAT_SIZE = 67;         // Chars per segment when concatenated with unicode
+
     public function __construct(NotificationService $notificationService)
     {
         $this->notificationService = $notificationService;
+    }
+
+    /**
+     * Calculate SMS segments required for a message
+     *
+     * @param string $message The message content
+     * @return int Number of segments
+     */
+    public function calculateSmsSegments(string $message): int
+    {
+        $length = strlen($message);
+
+        if ($length === 0) {
+            return 0;
+        }
+
+        // Check if message contains non-GSM characters (unicode)
+        $isUnicode = $this->containsUnicodeCharacters($message);
+
+        if ($isUnicode) {
+            // Unicode encoding: 70 chars for single, 67 for concatenated
+            if ($length <= self::SMS_UNICODE_SINGLE_LIMIT) {
+                return 1;
+            }
+            return (int) ceil($length / self::SMS_UNICODE_CONCAT_SIZE);
+        } else {
+            // GSM-7 encoding: 160 chars for single, 153 for concatenated
+            if ($length <= self::SMS_SINGLE_SEGMENT_LIMIT) {
+                return 1;
+            }
+            return (int) ceil($length / self::SMS_CONCAT_SEGMENT_SIZE);
+        }
+    }
+
+    /**
+     * Check if message contains unicode characters (non-GSM-7)
+     *
+     * @param string $message
+     * @return bool
+     */
+    protected function containsUnicodeCharacters(string $message): bool
+    {
+        // GSM-7 character set (basic + extended)
+        // If any character is outside this set, it's unicode
+        $gsm7Pattern = '/^[@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&\'()*+,\-.\/:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà\f^{}\\\[~\]|€]*$/u';
+
+        return !preg_match($gsm7Pattern, $message);
     }
 
     /**
@@ -30,6 +83,18 @@ class BroadcastService
     ): BroadcastMessage {
         $recipients = $this->getRecipients($sender->organization_id, $recipientType, $recipientFilters);
 
+        // Calculate SMS segments if SMS channel is selected
+        $smsSegmentsPerMessage = null;
+        $smsSegmentsTotal = null;
+
+        if (in_array('sms', $channels)) {
+            $smsSegmentsPerMessage = $this->calculateSmsSegments($message);
+
+            // Count recipients with phone numbers (only they will receive SMS)
+            $recipientsWithPhone = $recipients->filter(fn($user) => !empty($user->phone))->count();
+            $smsSegmentsTotal = $smsSegmentsPerMessage * $recipientsWithPhone;
+        }
+
         $broadcast = BroadcastMessage::create([
             'organization_id' => $sender->organization_id,
             'sender_id' => $sender->id,
@@ -41,6 +106,8 @@ class BroadcastService
             'recipient_count' => $recipients->count(),
             'status' => $scheduledAt ? 'scheduled' : 'draft',
             'scheduled_at' => $scheduledAt,
+            'sms_segments_per_message' => $smsSegmentsPerMessage,
+            'sms_segments_total' => $smsSegmentsTotal,
         ]);
 
         // If not scheduled, send immediately
@@ -116,6 +183,19 @@ class BroadcastService
     }
 
     /**
+     * Update the actual segments total after broadcast completes
+     * Call this when all jobs are processed to get accurate count
+     */
+    public function updateActualSegments(BroadcastMessage $broadcast): void
+    {
+        if ($broadcast->sms_segments_per_message && $broadcast->sms_sent > 0) {
+            $broadcast->update([
+                'sms_segments_total' => $broadcast->sms_segments_per_message * $broadcast->sms_sent
+            ]);
+        }
+    }
+
+    /**
      * Preview recipients without sending
      */
     public function previewRecipients(
@@ -153,10 +233,53 @@ class BroadcastService
             'sms_sent' => $broadcast->sms_sent,
             'sms_delivered' => $broadcast->sms_delivered,
             'sms_failed' => $broadcast->sms_failed,
+            'sms_segments_per_message' => $broadcast->sms_segments_per_message,
+            'sms_segments_total' => $broadcast->sms_segments_total,
             'delivery_rate' => $broadcast->delivery_rate,
             'total_sent' => $broadcast->total_sent,
             'total_delivered' => $broadcast->total_delivered,
             'total_failed' => $broadcast->total_failed,
         ];
+    }
+
+    /**
+     * Get SMS usage for an organization within a date range
+     * Useful for billing and usage reports
+     */
+    public function getSmsUsage(string $organizationId, ?\DateTime $from = null, ?\DateTime $to = null): array
+    {
+        $query = BroadcastMessage::where('organization_id', $organizationId)
+            ->whereNotNull('sms_segments_total')
+            ->where('sms_segments_total', '>', 0);
+
+        if ($from) {
+            $query->where('sent_at', '>=', $from);
+        }
+
+        if ($to) {
+            $query->where('sent_at', '<=', $to);
+        }
+
+        $broadcasts = $query->get();
+
+        return [
+            'total_broadcasts' => $broadcasts->count(),
+            'total_sms_sent' => $broadcasts->sum('sms_sent'),
+            'total_segments' => $broadcasts->sum('sms_segments_total'),
+            'period_start' => $from?->format('Y-m-d'),
+            'period_end' => $to?->format('Y-m-d'),
+        ];
+    }
+
+    /**
+     * Get current month's SMS usage for an organization
+     */
+    public function getCurrentMonthSmsUsage(string $organizationId): array
+    {
+        return $this->getSmsUsage(
+            $organizationId,
+            now()->startOfMonth()->toDateTime(),
+            now()->endOfMonth()->toDateTime()
+        );
     }
 }
