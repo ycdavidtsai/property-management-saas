@@ -20,20 +20,49 @@ use Illuminate\Support\Facades\Storage;
 
 
 Route::get('/', function () {
-    return redirect()->route('dashboard');
+    // return redirect()->route('dashboard');
+    return view('welcome');
 });
 
 Route::get('/home', function () {
     return view('welcome');
 });
 
-// Admin routes
+// =====================
+// ADMIN ROUTES (Site Administrator)
+// =====================
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->group(function () {
-        Route::get('/promotion-requests', [AdminController::class, 'promotionRequests'])->name('promotion-requests');
-        Route::post('/promotion-requests/{promotionRequest}/approve', [AdminController::class, 'approvePromotion'])->name('approve-promotion');
-        Route::post('/promotion-requests/{promotionRequest}/reject', [AdminController::class, 'rejectPromotion'])->name('reject-promotion');
-    });
+    // Dashboard
+    Route::get('/', [AdminController::class, 'dashboard'])->name('dashboard');
 
+    // Organization Management
+    Route::get('/organizations', [AdminController::class, 'organizations'])->name('organizations.index');
+    Route::get('/organizations/{organization}', [AdminController::class, 'showOrganization'])->name('organizations.show');
+    Route::post('/organizations/{organization}/toggle', [AdminController::class, 'toggleOrganization'])->name('organizations.toggle');
+
+    // User Management
+    Route::get('/users', [AdminController::class, 'users'])->name('users.index');
+    Route::get('/users/{user}', [AdminController::class, 'showUser'])->name('users.show');
+    Route::post('/users/{user}/toggle', [AdminController::class, 'toggleUser'])->name('users.toggle');
+
+    // Vendor Oversight
+    Route::get('/vendors', [AdminController::class, 'vendors'])->name('vendors.index');
+
+    // Promotion Requests (existing)
+    Route::get('/promotion-requests', [AdminController::class, 'promotionRequests'])->name('promotion-requests');
+    Route::post('/promotion-requests/{promotionRequest}/approve', [AdminController::class, 'approvePromotion'])->name('approve-promotion');
+    Route::post('/promotion-requests/{promotionRequest}/reject', [AdminController::class, 'rejectPromotion'])->name('reject-promotion');
+
+    // System Health
+    Route::get('/system', [AdminController::class, 'system'])->name('system');
+    Route::post('/system/jobs/{jobId}/retry', [AdminController::class, 'retryJob'])->name('system.retry-job');
+    Route::delete('/system/jobs/{jobId}', [AdminController::class, 'deleteJob'])->name('system.delete-job');
+    Route::post('/system/jobs/flush', [AdminController::class, 'flushJobs'])->name('system.flush-jobs');
+});
+
+// =====================
+// MAIN APP ROUTES (Organization Users)
+// =====================
 Route::middleware(['auth', 'verified', 'organization'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 

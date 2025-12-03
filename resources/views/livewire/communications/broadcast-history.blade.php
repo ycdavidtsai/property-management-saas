@@ -1,4 +1,4 @@
-<div class="max-w-6xl mx-auto">
+<div class="max-w-full mx-auto">
     <div class="bg-white rounded-lg shadow-sm border">
         <!-- Header -->
         <div class="px-6 py-4 border-b bg-gradient-to-r from-gray-50 to-slate-50">
@@ -91,7 +91,7 @@
         </div>
 
         <!-- Broadcasts Table -->
-        <div class="overflow-x-auto">
+        <div class="overflow-x-visible sm:overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
@@ -235,12 +235,12 @@
 
                             <!-- Actions -->
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <button wire:click="viewDetails({{ $broadcast->id }})"
+                                <button wire:click="viewDetails('{{ $broadcast->id }}')"
                                         class="text-blue-600 hover:text-blue-900 mr-3">
                                     View
                                 </button>
                                 @if(in_array($broadcast->status, ['draft', 'failed']))
-                                    <button wire:click="deleteBroadcast({{ $broadcast->id }})"
+                                    <button wire:click="deleteBroadcast('{{ $broadcast->id }}')"
                                             wire:confirm="Are you sure you want to delete this broadcast?"
                                             class="text-red-600 hover:text-red-900">
                                         Delete

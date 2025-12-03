@@ -28,13 +28,22 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        // Redirect based on role, modified by DT, Co-piolot
+        // Role-based redirect
         $user = Auth::user();
-        if ($user->role === 'tenant') {
-            return redirect()->route('tenant.portal'); // Redirect tenants to their portal
+
+        if ($user->role === 'admin') {
+            return redirect()->intended(route('admin.dashboard'));
         }
-        // if admin, manager, landlord, default to dashboard
-        return redirect()->intended(route('dashboard', absolute: false));
+
+        if ($user->role === 'vendor') {
+            return redirect()->intended(route('vendor.dashboard'));
+        }
+
+        if ($user->role === 'tenant') {
+            return redirect()->route('tenant.portal'); // Redirect tenants to their portal, added DT
+        }
+        // Default redirect for landlord, manager, tenant
+        return redirect()->intended(route('dashboard'));
     }
 
     /**
