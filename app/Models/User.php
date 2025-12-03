@@ -145,7 +145,10 @@ class User extends Authenticatable
      */
     public function activeLease()
     {
-        return $this->leases()->where('status', 'active')->first();
+        //return $this->leases()->where('status', 'active')->first();
+        return $this->leases()
+        ->whereIn('status', ['active', 'expiring_soon'])
+        ->first();
     }
 
     /**

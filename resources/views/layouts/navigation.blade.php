@@ -116,7 +116,7 @@
                     @endif
 
                     {{-- Tenant Property info , added by DT--}}
-                    @if(auth()->user()->role === 'tenant')
+                    {{-- @if(auth()->user()->role === 'tenant')
                         <div class="mt-4 px-4">
                             <div class="bg-gray-50 rounded-lg p-3">
                                 <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Property Address:</div>
@@ -128,7 +128,31 @@
                                 </div>
                             </div>
                         </div>
-                    @endif
+                    @endif --}}
+                    @if(auth()->user()->role === 'tenant')
+    @php
+        $activeLease = auth()->user()->activeLease();
+    @endphp
+    @if($activeLease && $activeLease->unit && $activeLease->unit->property)
+        <div class="mt-4 px-4">
+            <div class="bg-gray-50 rounded-lg p-3">
+                <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Property Address:</div>
+                <div class="mt-1 text-sm font-medium text-gray-900">{{ $activeLease->unit->property->address }}</div>
+                <div class="mt-1">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {{ App\Services\RoleService::getRoleDisplayName(auth()->user()->role) }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    @else
+        <div class="mt-4 px-4">
+            <div class="bg-yellow-50 rounded-lg p-3">
+                <div class="text-xs font-medium text-yellow-600">No active lease</div>
+            </div>
+        </div>
+    @endif
+@endif
 
 {{-- vendor portal , added by DT, repeated, add this to navigation-items --}}
 {{-- @if(auth()->user()->role === 'vendor')
