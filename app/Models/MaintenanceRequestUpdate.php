@@ -47,13 +47,14 @@ class MaintenanceRequestUpdate extends Model
      */
     public function canBeEditedBy(User $user): bool
     {
-        // Only the creator can edit
-        if ($this->user_id !== $user->id) {
+        // Only the creator can edit, , Use loose comparison != instead of strict !==:
+        if ($this->user_id != $user->id) {
             return false;
         }
 
         // Can only edit within 15 minutes
         return $this->created_at->diffInMinutes(now()) <= 15;
+
     }
 
     /**
@@ -61,13 +62,15 @@ class MaintenanceRequestUpdate extends Model
      */
     public function canBeDeletedBy(User $user): bool
     {
-        // Only the creator can delete
-        if ($this->user_id !== $user->id) {
+        //return true;
+
+        // Only the creator can delete, Use loose comparison != instead of strict !==:
+        if ($this->user_id != $user->id) {
             return false;
         }
-
         // Can only delete within 30 minutes
         return $this->created_at->diffInMinutes(now()) <= 30;
+
     }
 
     /**
