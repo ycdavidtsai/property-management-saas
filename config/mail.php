@@ -113,4 +113,16 @@ return [
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Admin Email Address
+    |--------------------------------------------------------------------------
+    |
+    | This email address is used to receive administrative notifications
+    | such as inquiries from the registration-closed page.
+    |
+    */
+
+    'admin_email' => env('MAIL_ADMIN_EMAIL', 'davidtsai@sgvapartments.com'),
+
 ];
