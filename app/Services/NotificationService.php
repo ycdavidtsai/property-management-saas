@@ -6,9 +6,10 @@ use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use App\Mail\GenericNotification;
-use Twilio\Rest\Client as TwilioClient;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\View;
+use App\Mail\GenericNotificationMail;
+use Twilio\Rest\Client as TwilioClient;
 
 class NotificationService
 {
@@ -109,7 +110,7 @@ class NotificationService
     }
 
     /**
-     * Send email notification with Postmark MessageID capture
+     * Send email notification with Postmark MessageID capture and HTML templates
      */
     public function sendEmail(
         User $user,
@@ -133,6 +134,27 @@ class NotificationService
         ]);
 
         try {
+            
+            // DEBUG: Log before rendering
+            // Log::info('About to render email template', [
+            //     'channel' => $channel,
+            //     'user_id' => $user->id,
+            // ]);
+
+            // Render HTML email template
+            $htmlBody = $this->renderEmailTemplate($subject, $content, $user, $channel, $fromUser);
+            $textBody = $this->renderTextVersion($content);
+
+            // DEBUG: Save HTML to file for inspection
+            // file_put_contents(storage_path('logs/last-email.html'), $htmlBody);
+            // Log::info('Email HTML saved to storage/logs/last-email.html');
+
+            // DEBUG: Log after rendering
+            // Log::info('Template rendered', [
+            //     'html_length' => strlen($htmlBody),
+            //     'has_doctype' => str_contains($htmlBody, '<!DOCTYPE'),
+            // ]);
+
             // Check if using Postmark
             $mailDriver = config('mail.default');
 
@@ -149,8 +171,8 @@ class NotificationService
                     'From' => config('mail.from.address'),
                     'To' => $user->email,
                     'Subject' => $subject,
-                    'HtmlBody' => nl2br(e($content)),
-                    'TextBody' => $content,
+                    'HtmlBody' => $htmlBody,
+                    'TextBody' => $textBody,
                     'MessageStream' => 'outbound',
                     'TrackOpens' => true,
                 ]);
@@ -179,7 +201,7 @@ class NotificationService
                 }
             } else {
                 // Fall back to standard Laravel Mail for other drivers
-                Mail::to($user->email)->send(new GenericNotification(
+                Mail::to($user->email)->send(new GenericNotificationMail(
                     $subject,
                     $content,
                     $notification
@@ -209,6 +231,89 @@ class NotificationService
         }
 
         return $notification;
+    }
+
+    /**
+     * Render email HTML template based on channel
+     */
+    protected function renderEmailTemplate(
+        string $subject,
+        string $content,
+        User $user,
+        string $channel,
+        ?User $fromUser = null
+    ): string {
+
+        // Add this at the start for debugging:
+        Log::info('Rendering email template', [
+            'channel' => $channel,
+            'template' => match ($channel) {
+                'broadcast' => 'emails.user.broadcast',
+                default => 'emails.user.generic-notification',
+            },
+        ]);
+
+        // Get organization name if available
+        $organizationName = $user->organization?->name ?? config('app.name');
+
+        // Build template data
+        $templateData = [
+            'emailSubject' => $subject,
+            'messageContent' => $content,
+            'recipient' => $user,
+            'sender' => $fromUser,
+            'organizationName' => $organizationName,
+            'previewText' => \Illuminate\Support\Str::limit(strip_tags($content), 100),
+        ];
+
+        // Select template based on channel
+        $template = match ($channel) {
+            'broadcast' => 'emails.user.broadcast',
+            'maintenance' => 'emails.user.generic-notification',
+            default => 'emails.user.generic-notification',
+        };
+
+        // Render and return HTML
+        try {
+            return View::make($template, $templateData)->render();
+        } catch (\Exception $e) {
+            // Fallback to simple HTML if template fails
+            Log::warning('Email template rendering failed, using fallback', [
+                'template' => $template,
+                'error' => $e->getMessage(),
+            ]);
+            return $this->renderFallbackHtml($subject, $content, $organizationName);
+        }
+    }
+
+    /**
+     * Render fallback HTML if template fails
+     */
+    protected function renderFallbackHtml(string $subject, string $content, string $organizationName): string
+    {
+        return "
+            <!DOCTYPE html>
+            <html>
+            <head><meta charset='UTF-8'></head>
+            <body style='font-family: Arial, sans-serif; padding: 20px;'>
+                <h2 style='color: #1f2937;'>{$subject}</h2>
+                <div style='color: #374151; line-height: 1.6;'>" . nl2br(e($content)) . "</div>
+                <hr style='margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;'>
+                <p style='color: #9ca3af; font-size: 12px;'>This email was sent by {$organizationName}</p>
+            </body>
+            </html>
+        ";
+    }
+
+    /**
+     * Render plain text version of email
+     */
+    protected function renderTextVersion(string $content): string
+    {
+        // Strip HTML and ensure clean text
+        $text = strip_tags($content);
+        $text = html_entity_decode($text, ENT_QUOTES, 'UTF-8');
+        return $text;
     }
 
     /**
@@ -274,7 +379,7 @@ class NotificationService
             // Only add statusCallback if we have a valid public URL (not localhost)
             $appUrl = config('app.url');
             if ($appUrl && !str_contains($appUrl, 'localhost') && !str_contains($appUrl, '127.0.0.1')) {
-                $messageParams['statusCallback'] = url('/twilio-webhook.php'); // Direct file bypasses CSRF
+                $messageParams['statusCallback'] = url('/twilio-webhook.php');
             }
 
             $message = $this->twilio->messages->create(
@@ -313,7 +418,7 @@ class NotificationService
     }
 
     /**
-     * ✨ NEW: Send maintenance request notification to multiple recipients based on event
+     * Send maintenance request notification to multiple recipients based on event
      */
     public function sendMaintenanceNotification(
         $maintenanceRequest,
@@ -326,7 +431,7 @@ class NotificationService
             return;
         }
 
-        // ✨ NEW: Send to multiple recipients based on event type
+        // Send to multiple recipients based on event type
         switch ($event) {
             case 'created':
                 // Notify tenant (confirmation)
@@ -336,7 +441,7 @@ class NotificationService
                     $maintenanceRequest->tenant
                 );
 
-                // ✨ NEW: Notify landlord/manager (new request alert)
+                // Notify landlord/manager (new request alert)
                 $this->notifyLandlordsAndManagers(
                     $maintenanceRequest,
                     'created_landlord'
@@ -351,7 +456,7 @@ class NotificationService
                     $maintenanceRequest->tenant
                 );
 
-                // ✨ FIX: Notify vendor directly (vendors may not have organization_id)
+                // Notify vendor directly (vendors may not have organization_id)
                 if ($maintenanceRequest->assignedVendor) {
                     $this->notifyVendorOfAssignment($maintenanceRequest);
                 }
@@ -374,7 +479,7 @@ class NotificationService
                     $maintenanceRequest->tenant
                 );
 
-                // ✨ NEW: Notify landlord/manager (completion confirmation)
+                // Notify landlord/manager (completion confirmation)
                 $this->notifyLandlordsAndManagers(
                     $maintenanceRequest,
                     'completed_landlord'
@@ -384,7 +489,7 @@ class NotificationService
     }
 
     /**
-     * ✨ FIX: Notify vendor directly (handles vendors without organization_id)
+     * Notify vendor directly (handles vendors without organization_id)
      */
     protected function notifyVendorOfAssignment($maintenanceRequest): void
     {
@@ -436,13 +541,13 @@ class NotificationService
                 return;
             }
 
-            // ✨ FIX: Vendor user exists but no organization_id
+            // Vendor user exists but no organization_id
             // Send using the maintenance request's organization_id
             try {
                 // Send Email
                 if ($vendorUser->email) {
                     $notification = Notification::create([
-                        'organization_id' => $organizationId, // ✅ Use request's organization
+                        'organization_id' => $organizationId,
                         'from_user_id' => null,
                         'to_user_id' => $vendorUser->id,
                         'type' => 'email',
@@ -454,16 +559,58 @@ class NotificationService
                         'status' => 'pending',
                     ]);
 
-                    Mail::to($vendorUser->email)->send(new GenericNotification(
+                    // Render HTML template for vendor email
+                    $htmlBody = $this->renderEmailTemplate(
                         'New Maintenance Job Assigned',
                         $emailContent,
-                        $notification
-                    ));
+                        $vendorUser,
+                        'maintenance',
+                        null
+                    );
+                    $textBody = $this->renderTextVersion($emailContent);
 
-                    $notification->update([
-                        'status' => 'sent',
-                        'sent_at' => now(),
-                    ]);
+                    $mailDriver = config('mail.default');
+
+                    if ($mailDriver === 'postmark') {
+                        $postmarkToken = config('services.postmark.token');
+
+                        $response = Http::withHeaders([
+                            'Accept' => 'application/json',
+                            'Content-Type' => 'application/json',
+                            'X-Postmark-Server-Token' => $postmarkToken,
+                        ])
+                        ->post('https://api.postmarkapp.com/email', [
+                            'From' => config('mail.from.address'),
+                            'To' => $vendorUser->email,
+                            'Subject' => 'New Maintenance Job Assigned',
+                            'HtmlBody' => $htmlBody,
+                            'TextBody' => $textBody,
+                            'MessageStream' => 'outbound',
+                            'TrackOpens' => true,
+                        ]);
+
+                        if ($response->successful()) {
+                            $data = $response->json();
+                            $notification->update([
+                                'status' => 'sent',
+                                'sent_at' => now(),
+                                'provider_id' => $data['MessageID'] ?? null,
+                            ]);
+                        } else {
+                            throw new \Exception('Postmark API error: ' . $response->body());
+                        }
+                    } else {
+                        Mail::to($vendorUser->email)->send(new GenericNotificationMail(
+                            'New Maintenance Job Assigned',
+                            $emailContent,
+                            $notification
+                        ));
+
+                        $notification->update([
+                            'status' => 'sent',
+                            'sent_at' => now(),
+                        ]);
+                    }
 
                     Log::info('Vendor email notification sent', [
                         'vendor_id' => $vendor->id,
@@ -475,7 +622,7 @@ class NotificationService
                 // Send SMS
                 if ($vendorUser->phone && $this->twilio) {
                     $notification = Notification::create([
-                        'organization_id' => $organizationId, // ✅ Use request's organization
+                        'organization_id' => $organizationId,
                         'from_user_id' => null,
                         'to_user_id' => $vendorUser->id,
                         'type' => 'sms',
@@ -493,15 +640,8 @@ class NotificationService
                     ];
 
                     if ($appUrl && !str_contains($appUrl, 'localhost') && !str_contains($appUrl, '127.0.0.1')) {
-                        $messageParams['statusCallback'] = url('/twilio-webhook.php'); // Direct file bypasses CSRF
+                        $messageParams['statusCallback'] = url('/twilio-webhook.php');
                     }
-
-                    // Log the callback URL for debugging
-                    Log::info('SMS sent with callback', [
-                        'to' => $vendorUser->phone,
-                        'callback_url' => url('/twilio-webhook.php'),
-                        'message_sid' => $notification->sid,
-                    ]);
 
                     $message = $this->twilio->messages->create(
                         $vendorUser->phone,
@@ -527,14 +667,42 @@ class NotificationService
                 ]);
             }
         } else {
-            // ✨ Vendor doesn't have user account, use direct contact info
+            // Vendor doesn't have user account, use direct contact info
             try {
                 if ($vendor->email) {
-                    Mail::to($vendor->email)->send(new GenericNotification(
+                    // Render HTML for direct vendor email
+                    $htmlBody = $this->renderFallbackHtml(
                         'New Maintenance Job Assigned',
                         $emailContent,
-                        null
-                    ));
+                        config('app.name')
+                    );
+
+                    $mailDriver = config('mail.default');
+
+                    if ($mailDriver === 'postmark') {
+                        $postmarkToken = config('services.postmark.token');
+
+                        Http::withHeaders([
+                            'Accept' => 'application/json',
+                            'Content-Type' => 'application/json',
+                            'X-Postmark-Server-Token' => $postmarkToken,
+                        ])
+                        ->post('https://api.postmarkapp.com/email', [
+                            'From' => config('mail.from.address'),
+                            'To' => $vendor->email,
+                            'Subject' => 'New Maintenance Job Assigned',
+                            'HtmlBody' => $htmlBody,
+                            'TextBody' => $emailContent,
+                            'MessageStream' => 'outbound',
+                            'TrackOpens' => true,
+                        ]);
+                    } else {
+                        Mail::to($vendor->email)->send(new GenericNotificationMail(
+                            'New Maintenance Job Assigned',
+                            $emailContent,
+                            null
+                        ));
+                    }
 
                     Log::info('Vendor email sent directly (no user account)', [
                         'vendor_id' => $vendor->id,
@@ -566,7 +734,7 @@ class NotificationService
     }
 
     /**
-     * ✨ NEW: Send notification to a specific user with role-specific template
+     * Send notification to a specific user with role-specific template
      */
     protected function sendMaintenanceNotificationToUser(
         $maintenanceRequest,
@@ -574,7 +742,7 @@ class NotificationService
         User $user
     ): void {
         $templates = [
-            // Tenant notifications (original)
+            // Tenant notifications
             'created_tenant' => [
                 'subject' => 'Maintenance Request Submitted',
                 'email' => "Your maintenance request has been submitted successfully.\n\nCategory: {category}\nPriority: {priority}\nDescription: {description}\n\nWe will review your request and assign a vendor shortly.",
@@ -596,7 +764,7 @@ class NotificationService
                 'sms' => 'Your request #{id} is now completed.',
             ],
 
-            // ✨ NEW: Landlord/Manager notifications
+            // Landlord/Manager notifications
             'created_landlord' => [
                 'subject' => 'New Maintenance Request - Action Required',
                 'email' => "A new maintenance request has been submitted and needs assignment.\n\nProperty: {property}\nUnit: {unit}\nTenant: {tenant}\n\nCategory: {category}\nPriority: {priority}\nDescription: {description}\n\nPlease assign a vendor as soon as possible.",
@@ -608,7 +776,7 @@ class NotificationService
                 'sms' => 'Maintenance request #{id} at {property} Unit {unit} completed by {vendor}.',
             ],
 
-            // ✨ NEW: Vendor notifications (kept for vendors with proper organization_id)
+            // Vendor notifications
             'assigned_vendor' => [
                 'subject' => 'New Maintenance Job Assigned',
                 'email' => "You have been assigned a new maintenance job.\n\nProperty: {property}\nUnit: {unit}\nTenant: {tenant}\nTenant Phone: {tenant_phone}\n\nCategory: {category}\nPriority: {priority}\nDescription: {description}\n\nScheduled: {scheduled}\n\nPlease contact the tenant to coordinate access.",
@@ -672,7 +840,7 @@ class NotificationService
     }
 
     /**
-     * ✨ NEW: Notify all landlords and managers in the organization
+     * Notify all landlords and managers in the organization
      */
     protected function notifyLandlordsAndManagers($maintenanceRequest, string $eventRole): void
     {

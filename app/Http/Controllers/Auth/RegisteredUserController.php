@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\RegisterRequest;
+use App\Mail\ContactInquiryMail;
+use App\Mail\NewRegistrationMail;
 use App\Services\RegistrationService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
@@ -74,20 +76,11 @@ class RegisteredUserController extends Controller
         }
 
         try {
-            Mail::raw(
-                "New Inquiry from Registration Page\n" .
-                "===================================\n\n" .
-                "Name: {$validated['name']}\n" .
-                "Email: {$validated['email']}\n\n" .
-                "Message:\n{$validated['message']}\n\n" .
-                "---\n" .
-                "Sent: " . now()->format('M j, Y \a\t g:i A'),
-                function ($mail) use ($adminEmail, $validated) {
-                    $mail->to($adminEmail)
-                         ->replyTo($validated['email'], $validated['name'])
-                         ->subject('MyRentals Inquiry: ' . $validated['name']);
-                }
-            );
+            Mail::to($adminEmail)->send(new ContactInquiryMail(
+                $validated['name'],
+                $validated['email'],
+                $validated['message']
+            ));
 
             return back()->with('success', 'Thank you! Your message has been sent. We will contact you soon.');
 
@@ -133,23 +126,7 @@ class RegisteredUserController extends Controller
         try {
             $organizationName = $registrationData['organization_name'] ?? 'N/A';
             
-            Mail::raw(
-                "New User Registration\n" .
-                "=====================\n\n" .
-                "A new user has registered on the platform:\n\n" .
-                "Name: {$user->name}\n" .
-                "Email: {$user->email}\n" .
-                "Organization: {$organizationName}\n" .
-                "Role: {$user->role}\n" .
-                "Registered: " . now()->format('M j, Y \a\t g:i A') . "\n\n" .
-                "Email Verified: " . ($user->hasVerifiedEmail() ? 'Yes' : 'Pending') . "\n\n" .
-                "---\n" .
-                "View all users: " . route('admin.users.index'),
-                function ($mail) use ($adminEmail, $user) {
-                    $mail->to($adminEmail)
-                         ->subject('New Registration: ' . $user->name . ' (' . $user->email . ')');
-                }
-            );
+            Mail::to($adminEmail)->send(new NewRegistrationMail($user, $organizationName));
 
             Log::info('Admin notified of new registration', ['user_id' => $user->id, 'email' => $user->email]);
 
