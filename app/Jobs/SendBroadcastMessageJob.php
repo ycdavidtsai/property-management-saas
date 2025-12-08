@@ -41,6 +41,7 @@ class SendBroadcastMessageJob implements ShouldQueue
                 return; // Skip this recipient
             }
 
+            // Use singleRecord=false to create separate records for broadcast delivery tracking
             $results = $notificationService->send(
                 $this->recipient,
                 $this->broadcast->title,
@@ -48,7 +49,8 @@ class SendBroadcastMessageJob implements ShouldQueue
                 $this->broadcast->channels,
                 'broadcast',
                 $this->broadcast,
-                $this->broadcast->sender
+                $this->broadcast->sender,
+                false // singleRecord=false: Create separate records for each channel
             );
 
             // Update broadcast statistics based on results

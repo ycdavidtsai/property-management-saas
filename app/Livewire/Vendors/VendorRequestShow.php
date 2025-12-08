@@ -4,7 +4,6 @@ namespace App\Livewire\Vendors;
 
 use App\Models\MaintenanceRequest;
 use App\Models\MaintenanceRequestUpdate;
-use App\Services\NotificationService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -23,7 +22,7 @@ class VendorRequestShow extends Component
     public $completionNotes = '';
     public $completionPhotos = [];
 
-    // NEW: Acceptance/Rejection properties
+    // Acceptance/Rejection properties
     public $showRejectModal = false;
     public $rejectionReason = '';
     public $rejectionNotes = '';
@@ -47,7 +46,8 @@ class VendorRequestShow extends Component
     }
 
     /**
-     * NEW: Vendor accepts the assignment
+     * Vendor accepts the assignment
+     * NOTE: Notifications are handled by MaintenanceRequestObserver when status changes
      */
     public function acceptAssignment()
     {
@@ -61,6 +61,9 @@ class VendorRequestShow extends Component
         }
 
         // Update status to assigned
+        // This triggers MaintenanceRequestObserver which sends notifications to:
+        // - Tenant (email + SMS with vendor info)
+        // - Landlord/Manager (email + SMS)
         $this->maintenanceRequest->update([
             'status' => 'assigned',
             'accepted_at' => now(),
@@ -75,61 +78,13 @@ class VendorRequestShow extends Component
             'is_internal' => false,
         ]);
 
-        // Notify tenant about acceptance
-        if ($this->maintenanceRequest->tenant) {
-            try {
-                $vendorName = Auth::user()->name;
-
-                app(NotificationService::class)->send(
-                    $this->maintenanceRequest->tenant,
-                    'Vendor Assigned to Your Request',
-                    "Good news! {$vendorName} has accepted your maintenance request and will begin work soon.\n\n" .
-                    "Request: {$this->maintenanceRequest->title}\n" .
-                    "Priority: " . ucfirst($this->maintenanceRequest->priority),
-                    ['email', 'sms'],
-                    'maintenance',
-                    $this->maintenanceRequest
-                );
-            } catch (\Exception $e) {
-                Log::error('Failed to send acceptance notification to tenant', [
-                    'error' => $e->getMessage(),
-                    'request_id' => $this->maintenanceRequest->id,
-                ]);
-            }
-        }
-
-        // Notify property manager/landlord about acceptance
-        $managers = $this->maintenanceRequest->organization->users()
-            ->whereIn('role', ['admin', 'manager', 'landlord'])
-            ->get();
-
-        foreach ($managers as $manager) {
-            try {
-                $vendorName = Auth::user()->name;
-
-                app(NotificationService::class)->send(
-                    $manager,
-                    'Vendor Accepted Assignment',
-                    "{$vendorName} has accepted the maintenance request for {$this->maintenanceRequest->property->name}.\n\n" .
-                    "Request: {$this->maintenanceRequest->title}",
-                    ['email'],
-                    'maintenance',
-                    $this->maintenanceRequest
-                );
-            } catch (\Exception $e) {
-                Log::error('Failed to send acceptance notification to manager', [
-                    'error' => $e->getMessage(),
-                    'manager_id' => $manager->id,
-                ]);
-            }
-        }
-
         session()->flash('success', 'Assignment accepted! You can now start work when ready.');
         $this->maintenanceRequest->refresh();
     }
 
     /**
-     * NEW: Confirm rejection with reason
+     * Confirm rejection with reason
+     * NOTE: Rejection notifications are sent directly here since there's no Observer event for rejection
      */
     public function confirmRejection()
     {
@@ -153,7 +108,7 @@ class VendorRequestShow extends Component
 
         // Store rejection info and revert to submitted status
         $this->maintenanceRequest->update([
-            'status' => 'submitted', // Back to unassigned (using your status name)
+            'status' => 'submitted', // Back to unassigned
             'assigned_vendor_id' => null,
             'assigned_at' => null,
             'rejection_reason' => $this->rejectionReason,
@@ -189,20 +144,21 @@ class VendorRequestShow extends Component
         ]);
 
         // Notify property manager/landlord about rejection
+        // This is done here because 'submitted' status doesn't trigger Observer notifications
         $managers = $this->maintenanceRequest->organization->users()
             ->whereIn('role', ['admin', 'manager', 'landlord'])
             ->get();
 
         foreach ($managers as $manager) {
             try {
-                app(NotificationService::class)->send(
+                app(\App\Services\NotificationService::class)->send(
                     $manager,
                     'Vendor Rejected Assignment',
                     "{$vendorName} declined the maintenance request for {$this->maintenanceRequest->property->name}.\n\n" .
                     "Request: {$this->maintenanceRequest->title}\n" .
                     "Reason: {$reasonText}" .
                     ($this->rejectionNotes ? "\nNotes: {$this->rejectionNotes}" : ""),
-                    ['email'],
+                    ['email', 'sms'],
                     'maintenance',
                     $this->maintenanceRequest
                 );
@@ -276,7 +232,7 @@ class VendorRequestShow extends Component
             return;
         }
 
-        // Update status
+        // Update status - Observer handles notifications
         $this->maintenanceRequest->update(['status' => $newStatus]);
 
         // For in_progress, set started_at timestamp
@@ -313,7 +269,7 @@ class VendorRequestShow extends Component
             }
         }
 
-        // Update maintenanceRequest status to completed
+        // Update status to completed - Observer handles notifications
         $this->maintenanceRequest->update([
             'status' => 'completed',
             'actual_cost' => $this->actualCost,

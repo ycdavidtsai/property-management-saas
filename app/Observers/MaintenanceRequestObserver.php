@@ -50,8 +50,13 @@ class MaintenanceRequestObserver
         }
 
         // Map status to notification event
+        // pending_acceptance = landlord assigned vendor, notify vendor
+        // assigned = vendor accepted, notify tenant
+        // in_progress = work started, notify tenant
+        // completed = work done, notify tenant + landlord
         $statusEvents = [
-            'assigned' => 'assigned',
+            'pending_acceptance' => 'pending_acceptance',  // NEW: Notify vendor
+            'assigned' => 'assigned',                      // Notify tenant (vendor accepted)
             'in_progress' => 'in_progress',
             'completed' => 'completed',
         ];

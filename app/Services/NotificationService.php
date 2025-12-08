@@ -28,6 +28,9 @@ class NotificationService
 
     /**
      * Send notification to a user via their preferred channels
+     * 
+     * @param bool $singleRecord When true, creates ONE in-app notification and delivers silently.
+     *                           When false, creates separate records for each channel (for broadcast tracking).
      */
     public function send(
         User $user,
@@ -36,7 +39,8 @@ class NotificationService
         array $channels = ['email'],
         string $notificationChannel = 'general',
         $notifiable = null,
-        ?User $fromUser = null
+        ?User $fromUser = null,
+        bool $singleRecord = true
     ): array {
         // Filter channels based on user preferences
         $allowedChannels = $this->getAllowedChannels($user, $notificationChannel, $channels);
@@ -51,6 +55,20 @@ class NotificationService
             return [];
         }
 
+        // Single record mode: Create ONE in-app notification, deliver via email/SMS silently
+        if ($singleRecord) {
+            return $this->sendWithSingleRecord(
+                $user,
+                $subject,
+                $content,
+                $allowedChannels,
+                $notificationChannel,
+                $notifiable,
+                $fromUser
+            );
+        }
+
+        // Multi-record mode (for broadcasts): Create separate records for tracking
         $results = [];
 
         foreach ($allowedChannels as $channel) {
@@ -77,6 +95,166 @@ class NotificationService
         }
 
         return $results;
+    }
+
+    /**
+     * Send notification with a single in-app record (no duplicate entries in notification center)
+     */
+    protected function sendWithSingleRecord(
+        User $user,
+        string $subject,
+        string $content,
+        array $allowedChannels,
+        string $notificationChannel,
+        $notifiable,
+        ?User $fromUser
+    ): array {
+        // Create ONE in-app notification record
+        $notification = Notification::create([
+            'organization_id' => $user->organization_id,
+            'from_user_id' => $fromUser?->id,
+            'to_user_id' => $user->id,
+            'type' => 'in_app',
+            'channel' => $notificationChannel,
+            'subject' => $subject,
+            'content' => $content,
+            'notifiable_type' => $notifiable ? get_class($notifiable) : null,
+            'notifiable_id' => $notifiable?->id,
+            'status' => 'sent',
+            'sent_at' => now(),
+        ]);
+
+        $deliveryResults = [
+            'email' => null,
+            'sms' => null,
+        ];
+
+        // Deliver via email (no separate record)
+        if (in_array('email', $allowedChannels) && $user->email) {
+            $deliveryResults['email'] = $this->deliverEmail(
+                $user,
+                $subject,
+                $content,
+                $notificationChannel,
+                $fromUser
+            );
+        }
+
+        // Deliver via SMS (no separate record)
+        if (in_array('sms', $allowedChannels) && $user->phone) {
+            $deliveryResults['sms'] = $this->deliverSms(
+                $user,
+                $content
+            );
+        }
+
+        // Update notification with delivery info
+        $deliveredVia = [];
+        if ($deliveryResults['email'] === true) $deliveredVia[] = 'email';
+        if ($deliveryResults['sms'] === true) $deliveredVia[] = 'sms';
+
+        $notification->update([
+            'provider_response' => [
+                'delivered_via' => $deliveredVia,
+                'email_sent' => $deliveryResults['email'],
+                'sms_sent' => $deliveryResults['sms'],
+            ],
+        ]);
+
+        Log::info('Notification sent (single record mode)', [
+            'notification_id' => $notification->id,
+            'to_user_id' => $user->id,
+            'delivered_via' => $deliveredVia,
+        ]);
+
+        return ['in_app' => $notification];
+    }
+
+    /**
+     * Deliver email without creating a notification record (for single-record mode)
+     */
+    protected function deliverEmail(
+        User $user,
+        string $subject,
+        string $content,
+        string $channel,
+        ?User $fromUser
+    ): bool {
+        try {
+            $htmlBody = $this->renderEmailTemplate($subject, $content, $user, $channel, $fromUser);
+            $textBody = $this->renderTextVersion($content);
+
+            $mailDriver = config('mail.default');
+
+            if ($mailDriver === 'postmark') {
+                $postmarkToken = config('services.postmark.token');
+
+                $response = Http::withHeaders([
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json',
+                    'X-Postmark-Server-Token' => $postmarkToken,
+                ])
+                ->post('https://api.postmarkapp.com/email', [
+                    'From' => config('mail.from.address'),
+                    'To' => $user->email,
+                    'Subject' => $subject,
+                    'HtmlBody' => $htmlBody,
+                    'TextBody' => $textBody,
+                    'MessageStream' => 'outbound',
+                    'TrackOpens' => true,
+                ]);
+
+                if ($response->successful()) {
+                    Log::info('Email delivered (silent)', ['to' => $user->email]);
+                    return true;
+                } else {
+                    throw new \Exception('Postmark API error: ' . $response->body());
+                }
+            } else {
+                Mail::to($user->email)->send(new GenericNotificationMail($subject, $content, null));
+                Log::info('Email delivered (silent)', ['to' => $user->email, 'driver' => $mailDriver]);
+                return true;
+            }
+        } catch (\Exception $e) {
+            Log::error('Email delivery failed (silent)', [
+                'to' => $user->email,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Deliver SMS without creating a notification record (for single-record mode)
+     */
+    protected function deliverSms(User $user, string $content): bool
+    {
+        if (!$user->phone || !$this->twilio) {
+            return false;
+        }
+
+        try {
+            $messageParams = [
+                'from' => config('services.twilio.phone'),
+                'body' => $content,
+            ];
+
+            $appUrl = config('app.url');
+            if ($appUrl && !str_contains($appUrl, 'localhost') && !str_contains($appUrl, '127.0.0.1')) {
+                $messageParams['statusCallback'] = url('/twilio-webhook.php');
+            }
+
+            $this->twilio->messages->create($user->phone, $messageParams);
+
+            Log::info('SMS delivered (silent)', ['to' => $user->phone]);
+            return true;
+        } catch (\Exception $e) {
+            Log::error('SMS delivery failed (silent)', [
+                'to' => $user->phone,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
     }
 
     /**
@@ -134,26 +312,9 @@ class NotificationService
         ]);
 
         try {
-            
-            // DEBUG: Log before rendering
-            // Log::info('About to render email template', [
-            //     'channel' => $channel,
-            //     'user_id' => $user->id,
-            // ]);
-
             // Render HTML email template
             $htmlBody = $this->renderEmailTemplate($subject, $content, $user, $channel, $fromUser);
             $textBody = $this->renderTextVersion($content);
-
-            // DEBUG: Save HTML to file for inspection
-            // file_put_contents(storage_path('logs/last-email.html'), $htmlBody);
-            // Log::info('Email HTML saved to storage/logs/last-email.html');
-
-            // DEBUG: Log after rendering
-            // Log::info('Template rendered', [
-            //     'html_length' => strlen($htmlBody),
-            //     'has_doctype' => str_contains($htmlBody, '<!DOCTYPE'),
-            // ]);
 
             // Check if using Postmark
             $mailDriver = config('mail.default');
@@ -243,16 +404,6 @@ class NotificationService
         string $channel,
         ?User $fromUser = null
     ): string {
-
-        // Add this at the start for debugging:
-        Log::info('Rendering email template', [
-            'channel' => $channel,
-            'template' => match ($channel) {
-                'broadcast' => 'emails.user.broadcast',
-                default => 'emails.user.generic-notification',
-            },
-        ]);
-
         // Get organization name if available
         $organizationName = $user->organization?->name ?? config('app.name');
 
@@ -448,18 +599,28 @@ class NotificationService
                 );
                 break;
 
+            case 'pending_acceptance':
+                // NEW: Landlord assigned vendor, notify VENDOR only
+                // Tenant will be notified when vendor accepts
+                if ($maintenanceRequest->assignedVendor) {
+                    $this->notifyVendorOfAssignment($maintenanceRequest);
+                }
+                break;
+
             case 'assigned':
-                // Notify tenant (vendor assigned)
+                // Vendor accepted the job, notify TENANT only
+                // (Vendor was already notified at pending_acceptance)
                 $this->sendMaintenanceNotificationToUser(
                     $maintenanceRequest,
                     'assigned_tenant',
                     $maintenanceRequest->tenant
                 );
 
-                // Notify vendor directly (vendors may not have organization_id)
-                if ($maintenanceRequest->assignedVendor) {
-                    $this->notifyVendorOfAssignment($maintenanceRequest);
-                }
+                // Also notify landlord/manager (vendor accepted)
+                $this->notifyLandlordsAndManagers(
+                    $maintenanceRequest,
+                    'assigned_landlord'
+                );
                 break;
 
             case 'in_progress':
@@ -750,8 +911,8 @@ class NotificationService
             ],
             'assigned_tenant' => [
                 'subject' => 'Vendor Assigned to Your Request',
-                'email' => "Your maintenance request has been assigned to a vendor.\n\nVendor: {vendor}\nScheduled: {scheduled}\n\nThe vendor will contact you soon.",
-                'sms' => 'Your request #{id} has been assigned to {vendor}.',
+                'email' => "Great news! A vendor has been assigned to your maintenance request and will contact you soon.\n\nVendor: {vendor}\nVendor Phone: {vendor_phone}\nScheduled: {scheduled}\n\nIf you don't hear from them within 24 hours, please contact us.",
+                'sms' => 'Request #{id} assigned to {vendor} ({vendor_phone}). They will contact you soon.',
             ],
             'in_progress_tenant' => [
                 'subject' => 'Work Started on Your Request',
@@ -774,6 +935,11 @@ class NotificationService
                 'subject' => 'Maintenance Request Completed',
                 'email' => "A maintenance request has been completed.\n\nProperty: {property}\nUnit: {unit}\nTenant: {tenant}\nVendor: {vendor}\n\nCompleted on: {completed_at}",
                 'sms' => 'Maintenance request #{id} at {property} Unit {unit} completed by {vendor}.',
+            ],
+            'assigned_landlord' => [
+                'subject' => 'Vendor Accepted Assignment',
+                'email' => "A vendor has accepted a maintenance request assignment.\n\nProperty: {property}\nUnit: {unit}\nTenant: {tenant}\nVendor: {vendor}\nVendor Phone: {vendor_phone}\n\nThe vendor will contact the tenant to schedule the work.",
+                'sms' => 'Vendor {vendor} accepted request #{id} at {property} Unit {unit}.',
             ],
 
             // Vendor notifications
@@ -807,7 +973,8 @@ class NotificationService
             '{category}' => $maintenanceRequest->category ?? 'N/A',
             '{priority}' => ucfirst($maintenanceRequest->priority ?? 'N/A'),
             '{description}' => $maintenanceRequest->description ?? 'N/A',
-            '{vendor}' => $maintenanceRequest->assignedVendor?->company_name ?? 'Vendor',
+            '{vendor}' => $maintenanceRequest->assignedVendor?->name ?? 'Vendor',
+            '{vendor_phone}' => $maintenanceRequest->assignedVendor?->phone ?? 'N/A',
             '{scheduled}' => $maintenanceRequest->scheduled_date?->format('M j, Y') ?? 'TBD',
             '{completed_at}' => $maintenanceRequest->completed_at?->format('M j, Y') ?? now()->format('M j, Y'),
             '{property}' => $maintenanceRequest->unit?->property?->name ?? 'Property',
