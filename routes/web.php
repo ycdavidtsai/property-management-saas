@@ -70,11 +70,15 @@ Route::middleware(['auth', 'verified', 'organization'])->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-    // Notification Preferences
+    // Notification Preferences (all users can manage their own)
     Route::get('/profile/notification-preferences', [ProfileController::class, 'editNotificationPreferences'])->name('profile.notification-preferences');
 
-    // Property Management Routes
-    Route::prefix('properties')->name('properties.')->group(function () {
+    // =====================
+    // LANDLORD/MANAGER ONLY ROUTES
+    // =====================
+
+    // Property Management Routes - Landlords/Managers only
+    Route::prefix('properties')->name('properties.')->middleware(['role:admin,manager,landlord'])->group(function () {
         Route::get('/', [PropertyController::class, 'index'])->name('index');
         Route::get('/create', [PropertyController::class, 'create'])->name('create');
         Route::get('/{property}', [PropertyController::class, 'show'])->name('show');
@@ -82,34 +86,30 @@ Route::middleware(['auth', 'verified', 'organization'])->group(function () {
         Route::post('/', [PropertyController::class, 'store'])->name('store');
     });
 
-    // Tenant Management Routes
-    Route::prefix('tenants')->name('tenants.')->group(function () {
+    // Tenant Management Routes - Landlords/Managers only (NOT accessible by tenants!)
+    Route::prefix('tenants')->name('tenants.')->middleware(['role:admin,manager,landlord'])->group(function () {
         Route::get('/', [TenantController::class, 'index'])->name('index');
         Route::get('/create', [TenantController::class, 'create'])->name('create');
         Route::get('/{tenant}', [TenantController::class, 'show'])->name('show');
         Route::get('/{tenant}/edit', [TenantController::class, 'edit'])->name('edit');
     });
 
-    // Tenant Portal Route (optional - add to tenant routes group if you prefer)
-    Route::get('/tenant/portal', [TenantController::class, 'portal'])->name('tenant.portal');
-
-    // Lease Management Routes (following your exact pattern)
-    Route::prefix('leases')->name('leases.')->group(function () {
+    // Lease Management Routes - Landlords/Managers only
+    Route::prefix('leases')->name('leases.')->middleware(['role:admin,manager,landlord'])->group(function () {
         Route::get('/', [LeaseController::class, 'index'])->name('index');
         Route::get('/create', [LeaseController::class, 'create'])->name('create');
         Route::get('/{lease}', [LeaseController::class, 'show'])->name('show');
         Route::get('/{lease}/edit', [LeaseController::class, 'edit'])->name('edit');
-
     });
 
-    // Unit Management Routes (nested under properties for context)
-    Route::prefix('units')->name('units.')->group(function () {
+    // Unit Management Routes - Landlords/Managers only
+    Route::prefix('units')->name('units.')->middleware(['role:admin,manager,landlord'])->group(function () {
         Route::get('/{unit}', [UnitController::class, 'show'])->name('show');
         Route::get('/{unit}/edit', [UnitController::class, 'edit'])->name('edit');
     });
 
-    // Vendor Management Routes
-    Route::prefix('vendors')->name('vendors.')->group(function () {
+    // Vendor Management Routes - Landlords/Managers only
+    Route::prefix('vendors')->name('vendors.')->middleware(['role:admin,manager,landlord'])->group(function () {
         Route::get('/', [VendorController::class, 'index'])->name('index');
         Route::get('/create', [VendorController::class, 'create'])->name('create');
 
@@ -124,48 +124,67 @@ Route::middleware(['auth', 'verified', 'organization'])->group(function () {
         Route::delete('/{vendor}', [VendorController::class, 'destroy'])->name('destroy');
     });
 
-    // Communication Routes (NEW)
-    Route::prefix('communications')->name('communications.')->group(function () {
-        Route::get('/', [CommunicationController::class, 'index'])->name('index');
+    // =====================
+    // TENANT ONLY ROUTES
+    // =====================
 
-        // Broadcast routes (landlord/manager only)
+    // Tenant Portal - Tenants only
+    Route::get('/tenant/portal', [TenantController::class, 'portal'])
+        ->middleware(['role:tenant'])
+        ->name('tenant.portal');
+
+    // =====================
+    // COMMUNICATION ROUTES
+    // =====================
+    Route::prefix('communications')->name('communications.')->group(function () {
+        // Notification center - All authenticated users
+        Route::get('/', [CommunicationController::class, 'index'])->name('index');
+        Route::get('/notifications', [CommunicationController::class, 'notifications'])->name('notifications');
+
+        // Broadcast routes - Landlord/Manager only
         Route::middleware('role:landlord,manager,admin')->group(function () {
             Route::get('/compose', [CommunicationController::class, 'compose'])->name('compose');
             Route::get('/history', [CommunicationController::class, 'history'])->name('history');
         });
-
-        // Notification routes (all authenticated users)
-        Route::get('/notifications', [CommunicationController::class, 'notifications'])->name('notifications');
     });
 });
 
+// =====================
+// MAINTENANCE REQUEST ROUTES (All users with policy checks)
+// =====================
 Route::middleware(['auth', 'verified'])->group(function () {
-    // Maintenance Request Routes
     Route::prefix('maintenance-requests')->name('maintenance-requests.')->group(function () {
         Route::get('/', [MaintenanceRequestController::class, 'index'])->name('index');
         Route::get('/create', [MaintenanceRequestController::class, 'create'])->name('create');
         Route::get('/{maintenanceRequest}', [MaintenanceRequestController::class, 'show'])->name('show');
-        Route::get('/{maintenanceRequest}/edit', [MaintenanceRequestController::class, 'edit'])->name('edit');
-        Route::put('/{maintenanceRequest}', [MaintenanceRequestController::class, 'update'])->name('update');
-        Route::delete('/{maintenanceRequest}', [MaintenanceRequestController::class, 'destroy'])->name('destroy');
+        Route::get('/{maintenanceRequest}/edit', [MaintenanceRequestController::class, 'edit'])
+            ->middleware(['role:admin,manager,landlord']) // Only managers can edit
+            ->name('edit');
+        Route::put('/{maintenanceRequest}', [MaintenanceRequestController::class, 'update'])
+            ->middleware(['role:admin,manager,landlord']) // Only managers can update
+            ->name('update');
+        Route::delete('/{maintenanceRequest}', [MaintenanceRequestController::class, 'destroy'])
+            ->middleware(['role:admin,manager,landlord']) // Only managers can delete
+            ->name('destroy');
     });
 });
 
-// Vendor Portal Routes
-Route::prefix('vendor')->name('vendor.')->middleware(['auth', 'verified'])->group(function () {
-        // Check if user has vendor role
-        Route::middleware('role:vendor')->group(function () {
-            Route::get('/dashboard', [VendorController::class, 'dashboard'])->name('dashboard');
-            Route::get('/requests', [VendorController::class, 'requests'])->name('requests.index');
-            Route::get('/requests/{maintenanceRequest}', [VendorController::class, 'vendorShow'])->name('requests.show');
+// =====================
+// VENDOR PORTAL ROUTES (Vendors only)
+// =====================
+Route::prefix('vendor')->name('vendor.')->middleware(['auth', 'verified', 'role:vendor'])->group(function () {
+    Route::get('/dashboard', [VendorController::class, 'dashboard'])->name('dashboard');
+    Route::get('/requests', [VendorController::class, 'requests'])->name('requests.index');
+    Route::get('/requests/{maintenanceRequest}', [VendorController::class, 'vendorShow'])->name('requests.show');
 
-            // Vendor Profile & Promotion
-            Route::get('/profile', [VendorController::class, 'profile'])->name('profile');
-            Route::post('/request-promotion', [VendorController::class, 'requestPromotion'])->name('request-promotion');
-        });
+    // Vendor Profile & Promotion
+    Route::get('/profile', [VendorController::class, 'profile'])->name('profile');
+    Route::post('/request-promotion', [VendorController::class, 'requestPromotion'])->name('request-promotion');
 });
 
-// Temporary test routes - remove in production
+// =====================
+// TEST ROUTES (Remove in production)
+// =====================
 Route::middleware(['auth'])->prefix('test')->group(function () {
     Route::get('/notification/single', [App\Http\Controllers\TestNotificationController::class, 'testSingle']);
     Route::get('/notification/broadcast', [App\Http\Controllers\TestNotificationController::class, 'testBroadcast']);
@@ -173,7 +192,9 @@ Route::middleware(['auth'])->prefix('test')->group(function () {
     Route::post('/notification/preview', [App\Http\Controllers\TestNotificationController::class, 'previewRecipients']);
 });
 
-// Webhook Routes (must be outside auth middleware)
+// =====================
+// WEBHOOK ROUTES (No auth required)
+// =====================
 // Route::post('/webhooks/twilio/status', [WebhookController::class, 'twilioStatus'])
 //     ->name('webhooks.twilio.status')
 //     ->withoutMiddleware([
