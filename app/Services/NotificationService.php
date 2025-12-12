@@ -28,7 +28,7 @@ class NotificationService
 
     /**
      * Send notification to a user via their preferred channels
-     * 
+     *
      * @param bool $singleRecord When true, creates ONE in-app notification and delivers silently.
      *                           When false, creates separate records for each channel (for broadcast tracking).
      */
@@ -241,7 +241,8 @@ class NotificationService
 
             $appUrl = config('app.url');
             if ($appUrl && !str_contains($appUrl, 'localhost') && !str_contains($appUrl, '127.0.0.1')) {
-                $messageParams['statusCallback'] = url('/twilio-webhook.php');
+                //$messageParams['statusCallback'] = url('/twilio-webhook.php');
+                $messageParams['statusCallback'] = route('webhooks.twilio.status');
             }
 
             $this->twilio->messages->create($user->phone, $messageParams);
@@ -530,7 +531,8 @@ class NotificationService
             // Only add statusCallback if we have a valid public URL (not localhost)
             $appUrl = config('app.url');
             if ($appUrl && !str_contains($appUrl, 'localhost') && !str_contains($appUrl, '127.0.0.1')) {
-                $messageParams['statusCallback'] = url('/twilio-webhook.php');
+                //$messageParams['statusCallback'] = url('/twilio-webhook.php');
+                $messageParams['statusCallback'] = route('webhooks.twilio.status');
             }
 
             $message = $this->twilio->messages->create(
@@ -566,6 +568,92 @@ class NotificationService
         }
 
         return $notification;
+    }
+
+    /**
+     * Send SMS directly without creating notification record
+     * Used for transactional messages like OTP, invitations
+     */
+    public function sendSmsDirectly(string $phoneNumber, string $content): array
+    {
+        if (!$this->twilio) {
+            Log::warning('SMS send attempted but Twilio not configured');
+            throw new \Exception('SMS service not configured');
+        }
+
+        // Format phone number if needed
+        $formattedPhone = $this->formatPhoneNumber($phoneNumber);
+
+        try {
+            // Build message parameters
+            $messageParams = [
+                'from' => config('services.twilio.phone'),
+                'body' => $content,
+            ];
+
+            // Only add statusCallback if we have a valid public URL
+            // $appUrl = config('app.url');
+            // if ($appUrl && !str_contains($appUrl, 'localhost') && !str_contains($appUrl, '127.0.0.1')) {
+            //     $messageParams['statusCallback'] = route('webhooks.twilio.status');
+            // }
+            $appUrl = config('app.url');
+            if ($appUrl && !str_contains($appUrl, 'localhost') && !str_contains($appUrl, '127.0.0.1')) {
+                //$messageParams['statusCallback'] = url('/twilio-webhook.php');
+                $messageParams['statusCallback'] = route('webhooks.twilio.status');
+            }
+
+            $message = $this->twilio->messages->create(
+                $formattedPhone,
+                $messageParams
+            );
+
+            Log::info('Direct SMS sent', [
+                'to' => $formattedPhone,
+                'provider_id' => $message->sid,
+                'status' => $message->status,
+            ]);
+
+            return [
+                'success' => true,
+                'provider_id' => $message->sid,
+                'status' => $message->status,
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Direct SMS failed', [
+                'to' => $formattedPhone,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Format phone number to E.164 format
+     */
+    protected function formatPhoneNumber(string $phone): string
+    {
+        // Remove all non-numeric characters
+        $digits = preg_replace('/[^0-9]/', '', $phone);
+
+        // If 10 digits, assume US number
+        if (strlen($digits) === 10) {
+            return '+1' . $digits;
+        }
+
+        // If 11 digits starting with 1, assume US number
+        if (strlen($digits) === 11 && $digits[0] === '1') {
+            return '+' . $digits;
+        }
+
+        // If already has +, return as-is
+        if (str_starts_with($phone, '+')) {
+            return '+' . $digits;
+        }
+
+        // Default: add + prefix
+        return '+' . $digits;
     }
 
     /**
@@ -801,7 +889,8 @@ class NotificationService
                     ];
 
                     if ($appUrl && !str_contains($appUrl, 'localhost') && !str_contains($appUrl, '127.0.0.1')) {
-                        $messageParams['statusCallback'] = url('/twilio-webhook.php');
+                        //$messageParams['statusCallback'] = url('/twilio-webhook.php');
+                        $messageParams['statusCallback'] = route('webhooks.twilio.status');
                     }
 
                     $message = $this->twilio->messages->create(

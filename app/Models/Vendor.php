@@ -11,7 +11,7 @@ use App\Models\VendorPromotionRequest;
 
 class Vendor extends Model
 {
-    use HasFactory; // Removed HasUuids since we're using auto-incrementing IDs
+    use HasFactory;
 
     protected $fillable = [
         'organization_id',
@@ -24,21 +24,45 @@ class Vendor extends Model
         'is_active',
         'hourly_rate',
         'notes',
-        'user_id', // Link to users table
+        'user_id',
         'vendor_type',
         'created_by_organization_id',
         'promoted_at',
         'promotion_fee_paid',
+        // NEW: Invitation/Setup fields
+        'setup_status',
+        'invitation_token',
+        'invitation_sent_at',
+        'invitation_expires_at',
+        'invitation_resend_count',
+        'last_invitation_sent_at',
+        'phone_verification_code',
+        'phone_verification_expires_at',
+        'phone_verified_at',
+        'rejection_reason',
+        'rejected_by',
+        'rejected_at',
     ];
 
     protected $casts = [
         'specialties' => 'array',
         'is_active' => 'boolean',
         'hourly_rate' => 'decimal:2',
-        'organization_id' => 'string', // UUIDs stay strings
+        'organization_id' => 'string',
         'promoted_at' => 'datetime',
         'promotion_fee_paid' => 'decimal:2',
+        // NEW: Date casts for invitation fields
+        'invitation_sent_at' => 'datetime',
+        'invitation_expires_at' => 'datetime',
+        'last_invitation_sent_at' => 'datetime',
+        'phone_verification_expires_at' => 'datetime',
+        'phone_verified_at' => 'datetime',
+        'rejected_at' => 'datetime',
     ];
+
+    // ============================================
+    // RELATIONSHIPS
+    // ============================================
 
     public function organization(): BelongsTo
     {
@@ -60,10 +84,6 @@ class Vendor extends Model
         return $this->hasMany(MaintenanceRequest::class, 'assigned_vendor_id');
     }
 
-    public function getFormattedSpecialtiesAttribute(): string
-    {
-        return is_array($this->specialties) ? implode(', ', $this->specialties) : '';
-    }
     /**
      * Organization that created this vendor (for private vendors)
      */
@@ -79,6 +99,63 @@ class Vendor extends Model
     {
         return $this->hasMany(VendorPromotionRequest::class);
     }
+
+    /**
+     * User account linked to this vendor (for portal access)
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    /**
+     * User who rejected this vendor (for self-registration rejections)
+     */
+    public function rejectedByUser()
+    {
+        return $this->belongsTo(User::class, 'rejected_by');
+    }
+
+    // ============================================
+    // ACCESSORS
+    // ============================================
+
+    public function getFormattedSpecialtiesAttribute(): string
+    {
+        return is_array($this->specialties) ? implode(', ', $this->specialties) : '';
+    }
+
+    /**
+     * Get display-friendly setup status
+     */
+    public function getSetupStatusLabelAttribute(): string
+    {
+        return match($this->setup_status) {
+            'pending_setup' => 'Invitation Pending',
+            'pending_approval' => 'Awaiting Approval',
+            'active' => 'Active',
+            'rejected' => 'Rejected',
+            default => ucfirst($this->setup_status ?? 'Unknown'),
+        };
+    }
+
+    /**
+     * Get setup status color for badges
+     */
+    public function getSetupStatusColorAttribute(): string
+    {
+        return match($this->setup_status) {
+            'pending_setup' => 'yellow',
+            'pending_approval' => 'blue',
+            'active' => 'green',
+            'rejected' => 'red',
+            default => 'gray',
+        };
+    }
+
+    // ============================================
+    // STATUS CHECKS
+    // ============================================
 
     /**
      * Check if vendor is global
@@ -105,6 +182,66 @@ class Vendor extends Model
     }
 
     /**
+     * Check if vendor is managed by user account
+     */
+    public function isManagedByUser(): bool
+    {
+        return !is_null($this->user_id);
+    }
+
+    /**
+     * Check if vendor can be edited by landlord
+     */
+    public function canBeEditedByLandlord(): bool
+    {
+        return is_null($this->user_id);
+    }
+
+    /**
+     * Check if vendor is pending setup (invitation sent but not completed)
+     */
+    public function isPendingSetup(): bool
+    {
+        return $this->setup_status === 'pending_setup';
+    }
+
+    /**
+     * Check if vendor is pending approval (self-registered)
+     */
+    public function isPendingApproval(): bool
+    {
+        return $this->setup_status === 'pending_approval';
+    }
+
+    /**
+     * Check if vendor is fully active
+     */
+    public function isFullyActive(): bool
+    {
+        return $this->is_active && $this->setup_status === 'active';
+    }
+
+    /**
+     * Check if invitation is expired
+     */
+    public function isInvitationExpired(): bool
+    {
+        return $this->invitation_expires_at && $this->invitation_expires_at->isPast();
+    }
+
+    /**
+     * Check if phone is verified
+     */
+    public function isPhoneVerified(): bool
+    {
+        return !is_null($this->phone_verified_at);
+    }
+
+    // ============================================
+    // PERMISSIONS
+    // ============================================
+
+    /**
      * Check if vendor can be edited by user
      */
     public function canBeEditedBy(User $user): bool
@@ -124,6 +261,20 @@ class Vendor extends Model
     }
 
     /**
+     * Check if vendor can receive job assignments
+     */
+    public function canReceiveAssignments(): bool
+    {
+        return $this->is_active &&
+               $this->setup_status === 'active' &&
+               !is_null($this->user_id);
+    }
+
+    // ============================================
+    // SCOPES
+    // ============================================
+
+    /**
      * Scope: Global vendors only
      */
     public function scopeGlobal($query)
@@ -141,26 +292,56 @@ class Vendor extends Model
 
     /**
      * Scope: Vendors visible to an organization
-     * Includes: Global vendors + Private vendors they created
      */
     public function scopeVisibleToOrganization($query, $organizationId)
     {
         return $query->where(function($q) use ($organizationId) {
             $q->where('vendor_type', 'global')
-            ->orWhere('created_by_organization_id', $organizationId);
+              ->orWhere('created_by_organization_id', $organizationId);
         });
     }
 
     /**
-     * User account linked to this vendor (for portal access)
+     * Scope: Fully active vendors only
      */
-    public function user()
+    public function scopeFullyActive($query)
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return $query->where('is_active', true)
+                     ->where('setup_status', 'active');
     }
 
     /**
-     * ✨ NEW: Sync vendor data from linked user account
+     * Scope: Vendors pending setup
+     */
+    public function scopePendingSetup($query)
+    {
+        return $query->where('setup_status', 'pending_setup');
+    }
+
+    /**
+     * Scope: Vendors pending approval
+     */
+    public function scopePendingApproval($query)
+    {
+        return $query->where('setup_status', 'pending_approval');
+    }
+
+    /**
+     * Scope: Vendors that can receive assignments
+     */
+    public function scopeAssignable($query)
+    {
+        return $query->where('is_active', true)
+                     ->where('setup_status', 'active')
+                     ->whereNotNull('user_id');
+    }
+
+    // ============================================
+    // ACTIONS
+    // ============================================
+
+    /**
+     * Sync vendor data from linked user account
      */
     public function syncFromUser(User $user): void
     {
@@ -169,22 +350,5 @@ class Vendor extends Model
             'email' => $user->email,
             'phone' => $user->phone,
         ]);
-    }
-
-    /**
-     * ✨ NEW: Check if vendor is managed by user account
-     */
-    public function isManagedByUser(): bool
-    {
-        return !is_null($this->user_id);
-    }
-
-    /**
-     * ✨ NEW: Check if vendor can be edited by landlord
-     */
-    public function canBeEditedByLandlord(): bool
-    {
-        // Can only edit if no user account is linked
-        return is_null($this->user_id);
     }
 }

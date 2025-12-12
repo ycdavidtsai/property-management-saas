@@ -1,4 +1,5 @@
-{{-- This is Landlord Edit Vendors form page --}}
+{{-- resources/views/livewire/vendors/vendor-form.blade.php --}}
+{{-- This is Landlord Create/Edit Vendors form page with invitation flow --}}
 <div>
     @if (session()->has('message'))
         <div class="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
@@ -12,7 +13,72 @@
         </div>
     @endif
 
+    {{-- Pending Invitation Banner (for existing pending vendors) --}}
+    @if($isPendingSetup && $invitationStatus)
+        <div class="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3 flex-1">
+                    <h3 class="text-sm font-medium text-yellow-800">
+                        Awaiting Vendor Registration
+                    </h3>
+                    <div class="mt-2 text-sm text-yellow-700">
+                        <p>{{ $invitationStatus['message'] }}</p>
+                        @if($invitationStatus['sent_at'])
+                            <p class="mt-1 text-xs">
+                                Invitation sent: {{ $invitationStatus['sent_at']->diffForHumans() }}
+                                @if($invitationStatus['expires_at'] && !$invitationStatus['is_expired'])
+                                    · Expires {{ $invitationStatus['expires_at']->diffForHumans() }}
+                                @endif
+                            </p>
+                        @endif
+                    </div>
+                    @if($invitationStatus['can_resend'])
+                        <div class="mt-3">
+                            <button
+                                type="button"
+                                wire:click="resendInvitation"
+                                wire:loading.attr="disabled"
+                                class="inline-flex items-center px-3 py-1.5 border border-yellow-600 text-sm font-medium rounded text-yellow-700 bg-yellow-100 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                            >
+                                <svg class="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                </svg>
+                                <span wire:loading.remove wire:target="resendInvitation">Resend Invitation</span>
+                                <span wire:loading wire:target="resendInvitation">Sending...</span>
+                            </button>
+                            <span class="ml-2 text-xs text-yellow-600">
+                                {{ $invitationStatus['resend_count'] }}/{{ $invitationStatus['max_resends'] }} resends today
+                            </span>
+                        </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+    @endif
+
     <form wire:submit.prevent="save" class="space-y-6">
+        {{-- Vendor Has User Account Notice --}}
+        @if($hasUserAccount)
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div class="flex">
+                    <svg class="h-5 w-5 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                    </svg>
+                    <div>
+                        <p class="text-sm font-medium text-blue-900">This vendor manages their own profile</p>
+                        <p class="text-sm text-blue-700 mt-1">
+                            Name, email, and phone are managed by the vendor through their account. You can update business details below.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         <!-- Name -->
         <div>
             <label for="name" class="block text-sm font-medium text-gray-700">
@@ -22,7 +88,8 @@
                 type="text"
                 id="name"
                 wire:model="name"
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 {{ $hasUserAccount ? 'bg-gray-100' : '' }}"
+                {{ $hasUserAccount ? 'disabled' : '' }}
                 required
             >
             @error('name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
@@ -37,7 +104,8 @@
                 type="email"
                 id="email"
                 wire:model="email"
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 {{ $hasUserAccount ? 'bg-gray-100' : '' }}"
+                {{ $hasUserAccount ? 'disabled' : '' }}
                 required
             >
             @error('email') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
@@ -47,13 +115,21 @@
         <div>
             <label for="phone" class="block text-sm font-medium text-gray-700">
                 Phone
+                @if(!$isEditing && $sendInvitation)
+                    <span class="text-red-500">*</span>
+                @endif
             </label>
             <input
                 type="text"
                 id="phone"
                 wire:model="phone"
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="+1 (555) 123-4567"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 {{ $hasUserAccount ? 'bg-gray-100' : '' }}"
+                {{ $hasUserAccount ? 'disabled' : '' }}
             >
+            @if(!$isEditing && $sendInvitation)
+                <p class="mt-1 text-xs text-gray-500">Required for sending the invitation SMS</p>
+            @endif
             @error('phone') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
         </div>
 
@@ -216,12 +292,12 @@
             @error('notes') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
         </div>
 
-        <!-- Portal Access Section -->
-        @if($vendor && $vendor->exists)
-            <!-- Existing Vendor - Show Portal Access Status -->
+        <!-- Portal Access / Invitation Section -->
+        @if($isEditing)
+            {{-- Existing Vendor --}}
             <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
                 <h4 class="font-medium text-gray-900 mb-2">Vendor Portal Access</h4>
-                @if($vendor->user)
+                @if($hasUserAccount)
                     <div class="flex items-center text-green-700">
                         <svg class="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
@@ -231,54 +307,81 @@
                     <p class="text-sm text-gray-600 mt-1">
                         This vendor can log in to view and update assigned maintenance requests.
                     </p>
-                    <p class="text-sm text-gray-500 mt-1">
-                        User account: <span class="font-medium">{{ $vendor->user->email }}</span>
+                    @if($vendor->user)
+                        <p class="text-sm text-gray-500 mt-1">
+                            User account: <span class="font-medium">{{ $vendor->user->email }}</span>
+                        </p>
+                    @endif
+                @elseif($isPendingSetup)
+                    <div class="flex items-center text-yellow-700">
+                        <svg class="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="font-medium">Invitation pending</span>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-1">
+                        Waiting for vendor to complete registration via the invitation link.
                     </p>
                 @else
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <div class="flex items-center text-gray-600">
-                                <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                                </svg>
-                                <span class="font-medium">No portal access</span>
-                            </div>
-                            <p class="text-sm text-gray-600 mt-1">
-                                This vendor cannot log in to view assigned work
-                            </p>
-                        </div>
-                        <button
-                            type="button"
-                            wire:click="createUserAccount"
-                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            Create Portal Access
-                        </button>
+                    <div class="flex items-center text-gray-600">
+                        <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                        </svg>
+                        <span class="font-medium">No portal access</span>
                     </div>
+                    <p class="text-sm text-gray-600 mt-1">
+                        This vendor was created without sending an invitation.
+                    </p>
                 @endif
             </div>
         @else
-            <!-- New Vendor - Show Checkbox to Create User Account -->
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            {{-- New Vendor - Invitation Option --}}
+            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
                 <div class="flex items-start">
                     <div class="flex items-center h-5">
                         <input
                             type="checkbox"
-                            id="create_user_account"
-                            wire:model="create_user_account"
-                            class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            id="send_invitation"
+                            wire:model.live="sendInvitation"
+                            class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                         >
                     </div>
                     <div class="ml-3">
-                        <label for="create_user_account" class="font-medium text-gray-900">
-                            Create Vendor Portal Login Account
+                        <label for="send_invitation" class="font-medium text-gray-900">
+                            Send Registration Invitation via SMS
                         </label>
                         <p class="text-sm text-gray-600 mt-1">
-                            Allow this vendor to log in to the vendor portal to view and update their assigned maintenance requests. A temporary password will be generated and you should send a password reset link to the vendor.
+                            The vendor will receive a text message with a link to complete their registration and set up their login credentials. <strong>This is the recommended approach.</strong>
                         </p>
+                        @if($sendInvitation)
+                            <div class="mt-3 bg-green-100 rounded p-3 text-sm">
+                                <div class="flex items-center text-green-800">
+                                    <svg class="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/>
+                                    </svg>
+                                    An SMS will be sent to the phone number provided
+                                </div>
+                            </div>
+                        @endif
                     </div>
                 </div>
             </div>
+
+            @if(!$sendInvitation)
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div class="flex">
+                        <svg class="h-5 w-5 text-yellow-600 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                        </svg>
+                        <div>
+                            <p class="text-sm font-medium text-yellow-800">Vendor Record Only</p>
+                            <p class="text-sm text-yellow-700 mt-1">
+                                A vendor record will be created but they won't be able to log in to accept jobs or update their work. You can send an invitation later.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            @endif
         @endif
 
         <!-- Active Status -->
@@ -296,7 +399,7 @@
 
         <!-- Form Actions -->
         <div class="flex justify-end space-x-3 pt-4 border-t">
-            @if($vendor && $vendor->exists)
+            @if($isEditing)
                 <a
                     href="{{ route('vendors.show', $vendor) }}"
                     class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -313,13 +416,21 @@
             @endif
             <button
                 type="submit"
-                class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                wire:loading.attr="disabled"
+                class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
             >
-                @if($vendor && $vendor->exists)
-                    Update Vendor
-                @else
-                    Create Vendor
-                @endif
+                <span wire:loading.remove wire:target="save">
+                    @if($isEditing)
+                        Update Vendor
+                    @elseif($sendInvitation)
+                        Create & Send Invitation
+                    @else
+                        Create Vendor
+                    @endif
+                </span>
+                <span wire:loading wire:target="save">
+                    Processing...
+                </span>
             </button>
         </div>
     </form>

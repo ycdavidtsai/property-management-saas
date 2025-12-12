@@ -30,7 +30,10 @@ class WebhookController extends Controller
             Log::warning('Notification not found for Twilio webhook', [
                 'message_sid' => $messageSid
             ]);
-            return response()->json(['message' => 'Notification not found'], 404);
+            //return response()->json(['message' => 'Notification not found'], 404);
+            // When Twilio calls back with the status update, your controller looks for a Notification record with that SID. It doesn't find one (because one was never created), so it returns 404. Twilio sees the 404 and flags it as an error (11200).
+            // Return 200 OK so Twilio stops complaining/retrying
+            return response()->json(['message' => 'Notification not found, but webhook received'], 200);
         }
 
         // Update notification based on status

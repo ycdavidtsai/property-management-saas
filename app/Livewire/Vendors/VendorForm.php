@@ -3,13 +3,11 @@
 namespace App\Livewire\Vendors;
 
 use App\Models\Vendor;
-use App\Models\User;
 use App\Models\Organization;
+use App\Services\VendorInvitationService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;  // ➕ ADD THIS LINE
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 
 class VendorForm extends Component
@@ -25,10 +23,12 @@ class VendorForm extends Component
     public $hourly_rate;
     public $notes;
     public $is_active = true;
-    public $create_user_account = true; // For new vendors
-    public $vendor_type = 'private'; // Always private for non-admins
+    public $vendor_type = 'private';
     public $is_admin = false;
     public $selected_organizations = [];
+
+    // NEW: Invitation mode
+    public bool $sendInvitation = true; // Default to sending invitation
 
     // Available business types
     public $businessTypeOptions = [
@@ -77,9 +77,10 @@ class VendorForm extends Component
                 'notes' => $vendor->notes,
                 'is_active' => $vendor->is_active,
                 'vendor_type' => $vendor->vendor_type,
-                //'selected_organizations' => $vendor->organizations->pluck('id')->toArray(),
                 'selected_organizations' => $vendor->organizations ? $vendor->organizations->pluck('id')->toArray() : [],
             ]);
+            // Don't show invitation option when editing
+            $this->sendInvitation = false;
         } else {
             $this->authorize('create', Vendor::class);
 
@@ -95,27 +96,35 @@ class VendorForm extends Component
 
     protected function rules()
     {
-        return [
+        $rules = [
             'name' => 'required|string|max:255',
             'email' => [
                 'required',
                 'email',
                 'max:255',
-                // Force unique email globally
                 Rule::unique('vendors', 'email')->ignore($this->vendor?->id),
             ],
-            'phone' => 'nullable|string|max:20',
+            'phone' => [
+                $this->sendInvitation && !$this->vendor?->exists ? 'required' : 'nullable',
+                'string',
+                'max:20',
+            ],
             'business_type' => 'required|string',
             'specialties' => 'nullable|array',
             'hourly_rate' => 'nullable|numeric|min:0|max:99999.99',
             'notes' => 'nullable|string|max:1000',
             'is_active' => 'boolean',
-            'create_user_account' => 'boolean',
             'vendor_type' => 'required|in:global,private',
             'selected_organizations' => 'required_if:vendor_type,private|array|min:1',
             'selected_organizations.*' => 'exists:organizations,id',
         ];
+
+        return $rules;
     }
+
+    protected $messages = [
+        'phone.required' => 'Phone number is required to send an invitation.',
+    ];
 
     public function save()
     {
@@ -127,131 +136,166 @@ class VendorForm extends Component
             return;
         }
 
-        $data = [
-            'name' => $this->name,
-            'email' => $this->email,
-            'phone' => $this->phone,
-            'business_type' => $this->business_type,
-            'specialties' => $this->specialties,
-            'hourly_rate' => $this->hourly_rate,
-            'notes' => $this->notes,
-            'is_active' => $this->is_active,
-            'vendor_type' => $this->vendor_type,
-            'created_by_organization_id' => $this->vendor_type === 'private'
-                ? Auth::user()->organization_id
-                : null,
-        ];
-
         if ($this->vendor && $this->vendor->exists) {
-            // Update existing vendor
-            $this->authorize('update', $this->vendor);
-
-            // Only allow editing if user has permission
-            if (!$this->vendor->canBeEditedBy(Auth::user())) {
-                session()->flash('error', 'You do not have permission to edit this vendor.');
-                return redirect()->route('vendors.index');
-            }
-
-            $this->vendor->update($data);
-
-            // Sync organizations (only for private vendors)
-            if ($this->vendor->isPrivate()) {
-                $this->vendor->organizations()->sync($this->selected_organizations);
-            }
-
-            // Update linked user account if exists
-            if ($this->vendor->user) {
-                $this->vendor->user->update([
-                    'name' => $this->name,
-                    'email' => $this->email,
-                ]);
-            }
-
-            session()->flash('message', 'Vendor updated successfully.');
+            // UPDATE EXISTING VENDOR
+            return $this->updateVendor();
         } else {
-            // Create new vendor
-            $this->authorize('create', Vendor::class);
-            $this->vendor = Vendor::create($data);
+            // CREATE NEW VENDOR
+            return $this->createVendor();
+        }
+    }
 
-            // Attach organizations (only for private vendors or if admin selected orgs)
+    protected function createVendor()
+    {
+        $this->authorize('create', Vendor::class);
+
+        if ($this->sendInvitation) {
+            // Use invitation service
+            $invitationService = app(VendorInvitationService::class);
+
+            $result = $invitationService->createAndInvite([
+                'name' => $this->name,
+                'email' => $this->email,
+                'phone' => $this->phone,
+                'business_type' => $this->business_type,
+                'specialties' => $this->specialties,
+                'hourly_rate' => $this->hourly_rate,
+                'notes' => $this->notes,
+                'vendor_type' => $this->vendor_type,
+            ], Auth::user());
+
+            if (!$result['success']) {
+                $this->addError('phone', $result['error'] ?? 'Failed to create vendor.');
+                return;
+            }
+
+            $this->vendor = $result['vendor'];
+            session()->flash('message', $result['message']);
+
+        } else {
+            // Create vendor without invitation (no user account)
+            $this->vendor = Vendor::create([
+                'name' => $this->name,
+                'email' => $this->email,
+                'phone' => $this->phone,
+                'business_type' => $this->business_type,
+                'specialties' => $this->specialties,
+                'hourly_rate' => $this->hourly_rate,
+                'notes' => $this->notes,
+                'is_active' => $this->is_active,
+                'vendor_type' => $this->vendor_type,
+                'created_by_organization_id' => Auth::user()->organization_id,
+                'setup_status' => 'active', // Active but no user account
+            ]);
+
+            // Attach organizations
             if ($this->vendor_type === 'private') {
                 $this->vendor->organizations()->attach($this->selected_organizations);
-            } elseif ($this->vendor_type === 'global' && !empty($this->selected_organizations)) {
-                // For global vendors, admin can optionally pre-add them to organizations
-                $this->vendor->organizations()->attach($this->selected_organizations);
             }
 
-            // Create user account if requested
-            if ($this->create_user_account) {
-                $this->createUserAccountForVendor($this->vendor);
-            }
-
-            session()->flash('message', 'Vendor created successfully.' .
-                ($this->create_user_account ? ' User account created - please send password reset link to the vendor.' : ''));
+            session()->flash('message', 'Vendor created successfully. Note: No user account was created - the vendor cannot log in.');
         }
 
         return redirect()->route('vendors.show', $this->vendor);
     }
 
-    public function createUserAccount()
+    protected function updateVendor()
     {
-        // Check if vendor already has a user account
-        if ($this->vendor && $this->vendor->user) {
-            session()->flash('error', 'This vendor already has a user account.');
-            return;
+        $this->authorize('update', $this->vendor);
+
+        // Only allow editing if user has permission
+        if (!$this->vendor->canBeEditedBy(Auth::user())) {
+            session()->flash('error', 'You do not have permission to edit this vendor.');
+            return redirect()->route('vendors.index');
         }
 
-        if (!$this->vendor) {
-            session()->flash('error', 'No vendor record found.');
-            return;
+        // Check if vendor has user account (managed by user)
+        if ($this->vendor->isManagedByUser()) {
+            // Only allow limited updates
+            $this->vendor->update([
+                'business_type' => $this->business_type,
+                'specialties' => $this->specialties,
+                'hourly_rate' => $this->hourly_rate,
+                'notes' => $this->notes,
+                'is_active' => $this->is_active,
+            ]);
+            session()->flash('message', 'Vendor updated. Note: Name, email, and phone are managed by the vendor.');
+        } else {
+            // Full update allowed
+            $this->vendor->update([
+                'name' => $this->name,
+                'email' => $this->email,
+                'phone' => $this->phone,
+                'business_type' => $this->business_type,
+                'specialties' => $this->specialties,
+                'hourly_rate' => $this->hourly_rate,
+                'notes' => $this->notes,
+                'is_active' => $this->is_active,
+            ]);
+            session()->flash('message', 'Vendor updated successfully.');
         }
 
-        // Check if email is already taken
-        $existingUser = User::where('email', $this->vendor->email)->first();
-        if ($existingUser) {
-            session()->flash('error', 'This email is already registered as a user account.');
-            return;
+        // Sync organizations (only for private vendors)
+        if ($this->vendor->isPrivate()) {
+            $this->vendor->organizations()->sync($this->selected_organizations);
         }
 
-        $this->createUserAccountForVendor($this->vendor);
-
-        $this->vendor->refresh();
-        session()->flash('message', 'User account created successfully. Please send password reset link to the vendor.');
+        return redirect()->route('vendors.show', $this->vendor);
     }
 
-    private function createUserAccountForVendor(Vendor $vendor)
+    /**
+     * Resend invitation to pending vendor
+     */
+    public function resendInvitation()
     {
-        // Check if email is already taken
-        $existingUser = User::where('email', $vendor->email)->first();
-        if ($existingUser) {
-            return; // Silently fail if user exists
+        if (!$this->vendor || $this->vendor->setup_status !== 'pending_setup') {
+            session()->flash('error', 'Cannot resend invitation to this vendor.');
+            return;
         }
 
-        //$temporaryPassword = Str::random(16);
-        $temporaryPassword = 'pigu38man'; //temporary fixed password for testing
+        $invitationService = app(VendorInvitationService::class);
+        $result = $invitationService->sendInvitation($this->vendor, Auth::user());
 
-        $user = User::create([
-            'name' => $vendor->name,
-            'email' => $vendor->email,
-            'password' => Hash::make($temporaryPassword),
-            'organization_id' => $vendor->organization_id,
-            'role' => 'vendor',
-        ]);
+        if ($result['success']) {
+            session()->flash('message', 'Invitation resent successfully.');
+        } else {
+            session()->flash('error', $result['error']);
+        }
 
-        // Link vendor to user
-        $vendor->update(['user_id' => $user->id]);
+        $this->vendor->refresh();
     }
 
     public function render()
     {
-        // Get all organizations (for admin) or just current user's organization
         $user = Auth::user();
         $availableOrganizations = $user->role === 'admin'
             ? Organization::orderBy('name')->get()
             : Organization::where('id', $user->organization_id)->get();
 
+        // Get invitation status if editing a pending vendor
+        $invitationStatus = null;
+        if ($this->vendor && $this->vendor->setup_status === 'pending_setup') {
+            $invitationService = app(VendorInvitationService::class);
+            $invitationStatus = $invitationService->getInvitationStatus($this->vendor);
+        }
+
+        $hasUserAccount = false;
+        $isPendingSetup = false;
+        $canResendInvitation = false;
+
+        if ($this->vendor && $this->vendor->exists) {
+            $hasUserAccount = $this->vendor->user_id !== null;
+            $isPendingSetup = method_exists($this->vendor, 'isPendingSetup') && $this->vendor->isPendingSetup();
+            $canResendInvitation = $isPendingSetup && !$this->vendor->isInvitationExpired();
+        }
+
         return view('livewire.vendors.vendor-form', [
             'availableOrganizations' => $availableOrganizations,
+            'invitationStatus' => $invitationStatus,
+            'hasUserAccount' => $hasUserAccount,
+            'isPendingSetup' => $isPendingSetup,
+            'canResendInvitation' => $canResendInvitation,
+            'isEditing' => $this->vendor && $this->vendor->exists,
         ]);
     }
 }

@@ -11,21 +11,30 @@ class CheckRole
     /**
      * Handle an incoming request.
      *
-     * Supports multiple roles: middleware('role:admin,manager,landlord')
-     *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
-     * @param  string  $roles  Comma-separated list of allowed roles
+     * Supports: middleware('role:admin,manager,landlord')
      */
-    public function handle(Request $request, Closure $next, string $roles): Response
+    public function handle(Request $request, Closure $next, ...$roles): Response
     {
         if (!$request->user()) {
             abort(403, 'Unauthorized access.');
         }
 
-        // Split comma-separated roles into array
-        $allowedRoles = array_map('trim', explode(',', $roles));
+        // Flatten all roles into a single array
+        $allowedRoles = [];
+        foreach ($roles as $role) {
+            if (is_string($role)) {
+                // Split comma-separated roles
+                foreach (explode(',', $role) as $r) {
+                    $allowedRoles[] = trim($r);
+                }
+            }
+        }
 
-        // Check if user has any of the allowed roles
+        // logger()->info('CheckRole middleware', [
+        //     'user_role' => $request->user()->role,
+        //     'allowed_roles' => $allowedRoles,
+        // ]);
+
         if (!in_array($request->user()->role, $allowedRoles)) {
             abort(403, 'Unauthorized access.');
         }
@@ -33,10 +42,3 @@ class CheckRole
         return $next($request);
     }
 }
-
-// Register this middleware in bootstrap/app.php:
-// ->withMiddleware(function (Middleware $middleware) {
-//     $middleware->alias([
-//         'role' => \App\Http\Middleware\CheckRole::class,
-//     ]);
-// })

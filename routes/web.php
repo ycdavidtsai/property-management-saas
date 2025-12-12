@@ -11,6 +11,7 @@ use App\Http\Controllers\VendorController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\CommunicationController;
 use App\Http\Controllers\WebhookController;
+use App\Http\Controllers\VendorSetupController;
 use Illuminate\Http\Request;
 
 use Illuminate\Support\Facades\Route;
@@ -26,6 +27,23 @@ Route::get('/', function () {
 
 Route::get('/home', function () {
     return view('welcome');
+});
+
+// Add this block:
+// Webhooks (Public)
+Route::post('/webhooks/twilio/status', [WebhookController::class, 'twilioStatus'])
+    ->name('webhooks.twilio.status');
+    
+// Short URL redirect (public)
+Route::get('/s/{code}', [VendorSetupController::class, 'handleShortUrl'])
+    ->name('short-url.redirect');
+
+// Vendor setup (public - no auth required)
+Route::prefix('vendor-setup')->name('vendor.setup')->group(function () {
+    Route::get('/', [VendorSetupController::class, 'show'])->name('');
+    Route::post('/send-otp', [VendorSetupController::class, 'sendOtp'])->name('.send-otp');
+    Route::post('/verify-otp', [VendorSetupController::class, 'verifyOtp'])->name('.verify-otp');
+    Route::post('/complete', [VendorSetupController::class, 'complete'])->name('.complete');
 });
 
 // =====================
