@@ -1,460 +1,561 @@
-{{-- This is Vendor view maintenance request details page --}}
-<div>{{-- Beginning root Livewire div HERE --}}
-    <div class="flex flex-col lg:flex-row lg:items-start gap-6">
-        <!-- Main Content -->
-        <main class="flex-1 space-y-6">
-            <div class="bg-white shadow rounded-lg p-6 mb-6">
-                <div class="flex justify-between items-start mb-6">
-                    <div>
-                        <h1 class="text-2xl font-bold text-gray-900">{{ $maintenanceRequest->title }}</h1>
-                        <p class="text-gray-600 mt-1">Request #{{ substr($maintenanceRequest->id, 0, 8) }}</p>
-                    </div>
-                    <div class="flex space-x-2">
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-{{ $maintenanceRequest->priority_color ?? 'gray' }}-100 text-{{ $maintenanceRequest->priority_color ?? 'gray' }}-800">
-                            {{ ucfirst($maintenanceRequest->priority) }} Priority
-                        </span>
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-{{ $maintenanceRequest->status_color ?? 'blue' }}-100 text-{{ $maintenanceRequest->status_color ?? 'blue' }}-800">
-                            {{ $maintenanceRequest->status_label }}
-                        </span>
-                    </div>
-                </div>
+{{-- Mobile-Optimized Vendor Maintenance Request View --}}
+{{-- Phase 2: Touch-friendly interface for field use --}}
+<div x-data="{
+    showDetails: false,
+    showPhotos: false,
+    showTimeline: false,
+    activeTab: 'overview',
+    photoPreview: null
+}" class="min-h-screen bg-gray-100 pb-24">
 
-                <!-- Request Info -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-500">Property</label>
-                        <p class="mt-1 text-sm text-gray-900">{{ $maintenanceRequest->property->name }}</p>
-                    </div>
-                    @if($maintenanceRequest->unit)
-                        <div>
-                            <label class="block text-sm font-medium text-gray-500">Unit</label>
-                            <p class="mt-1 text-sm text-gray-900">Unit {{ $maintenanceRequest->unit->unit_number }}</p>
-                        </div>
-                    @endif
-                    <div>
-                        <label class="block text-sm font-medium text-gray-500">Submitted</label>
-                        <p class="mt-1 text-sm text-gray-900">{{ $maintenanceRequest->created_at->format('M d, Y g:i A') }}</p>
-                    </div>
-                    @if($maintenanceRequest->estimated_cost)
-                        <div>
-                            <label class="block text-sm font-medium text-gray-500">Estimated Cost</label>
-                            <p class="mt-1 text-sm text-gray-900">${{ number_format($maintenanceRequest->estimated_cost, 2) }}</p>
-                        </div>
-                    @endif
-                </div>
+    {{-- Mobile Header - Sticky --}}
+    <div class="sticky top-0 z-40 bg-white shadow-sm">
+        {{-- Status Bar --}}
+        <div class="bg-{{ $maintenanceRequest->status_color ?? 'blue' }}-600 text-white px-4 py-2">
+            <div class="flex items-center justify-between">
+                <span class="text-sm font-medium">{{ $maintenanceRequest->status_label }}</span>
+                <span class="text-sm bg-white/20 px-2 py-0.5 rounded">{{ ucfirst($maintenanceRequest->priority) }} Priority</span>
+            </div>
+        </div>
 
+        {{-- Title Bar --}}
+        <div class="px-4 py-3 border-b">
+            <div class="flex items-center justify-between">
+                <a href="{{ route('vendor.dashboard') }}" class="p-2 -ml-2 rounded-lg active:bg-gray-100">
+                    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                </a>
+                <h1 class="text-lg font-semibold text-gray-900 flex-1 mx-3 truncate">{{ $maintenanceRequest->title }}</h1>
+                <span class="text-xs text-gray-500">#{{ substr($maintenanceRequest->id, 0, 8) }}</span>
+            </div>
+        </div>
+    </div>
+
+    {{-- Flash Messages --}}
+    @if (session()->has('success'))
+        <div class="mx-4 mt-4 p-4 bg-green-50 border border-green-200 rounded-xl flex items-start"
+             x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 5000)"
+             x-transition:leave="transition ease-in duration-300"
+             x-transition:leave-start="opacity-100 transform translate-y-0"
+             x-transition:leave-end="opacity-0 transform -translate-y-2">
+            <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+            <p class="text-green-800 font-medium text-sm">{{ session('success') }}</p>
+        </div>
+    @endif
+
+    @if (session()->has('error'))
+        <div class="mx-4 mt-4 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start"
+             x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 5000)">
+            <svg class="w-5 h-5 text-red-600 mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+            </svg>
+            <p class="text-red-800 font-medium text-sm">{{ session('error') }}</p>
+        </div>
+    @endif
+
+    {{-- Pending Acceptance Alert --}}
+    @if($maintenanceRequest->status === 'pending_acceptance')
+        <div class="mx-4 mt-4 p-4 bg-amber-50 border-2 border-amber-300 rounded-xl">
+            <div class="flex items-start">
+                <div class="flex-shrink-0 bg-amber-100 rounded-full p-2 mr-3">
+                    <svg class="w-6 h-6 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-500 mb-2">Description</label>
-                    <p class="text-gray-900">{{ $maintenanceRequest->description }}</p>
+                    <h3 class="font-semibold text-amber-900">Action Required</h3>
+                    <p class="text-sm text-amber-700 mt-1">Review the details and accept or reject this assignment.</p>
                 </div>
+            </div>
+        </div>
+    @endif
 
-                @if($maintenanceRequest->photos && count($maintenanceRequest->photos) > 0)
-                    <div class="mt-6">
-                        <label class="block text-sm font-medium text-gray-500 mb-2">Photos</label>
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            @foreach($maintenanceRequest->photos as $photo)
-                                <img src="{{ Storage::url($photo) }}" alt="Maintenance photo"
-                                     class="w-full h-32 object-cover rounded-lg cursor-pointer"
-                                     onclick="window.open('{{ Storage::url($photo) }}', '_blank')">
-                            @endforeach
-                        </div>
-                    </div>
-                @endif
+    {{-- Quick Info Cards --}}
+    <div class="px-4 mt-4 grid grid-cols-2 gap-3">
+        {{-- Property Card --}}
+        <div class="bg-white rounded-xl p-4 shadow-sm">
+            <div class="flex items-center text-gray-500 mb-2">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                </svg>
+                <span class="text-xs font-medium">Property</span>
+            </div>
+            <p class="font-semibold text-gray-900 text-sm">{{ $maintenanceRequest->property->name }}</p>
+            @if($maintenanceRequest->unit)
+                <p class="text-xs text-gray-500 mt-0.5">Unit {{ $maintenanceRequest->unit->unit_number }}</p>
+            @endif
+        </div>
 
-                <!-- Status Actions -->
-                @if($maintenanceRequest->status === 'pending_acceptance')
-                    {{-- NEW: Pending Acceptance UI --}}
-                    <div class="mt-6 pt-6 border-t">
-                        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
-                            <div class="flex items-start">
-                                <div class="flex-shrink-0">
-                                    <svg class="h-6 w-6 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                                    </svg>
-                                </div>
-                                <div class="ml-3 flex-1">
-                                    <h3 class="text-sm font-semibold text-yellow-900">Assignment Pending Your Acceptance</h3>
-                                    <p class="text-sm text-yellow-700 mt-1">
-                                        Please review the request details carefully and decide if you can take this job.
-                                        If you accept, you'll be able to start work. If you need to decline, please provide a reason to help the property manager.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
+        {{-- Category Card --}}
+        <div class="bg-white rounded-xl p-4 shadow-sm">
+            <div class="flex items-center text-gray-500 mb-2">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                </svg>
+                <span class="text-xs font-medium">Category</span>
+            </div>
+            <p class="font-semibold text-gray-900 text-sm">{{ ucfirst($maintenanceRequest->category) }}</p>
+            <p class="text-xs text-gray-500 mt-0.5">{{ $maintenanceRequest->created_at->format('M d, Y') }}</p>
+        </div>
+    </div>
 
-                        <div class="flex gap-3">
-                            <!-- Accept Button -->
-                            <button wire:click="acceptAssignment"
-                                    wire:loading.attr="disabled"
-                                    onclick="return confirm('Are you sure you want to accept this assignment? You will be committed to completing this work.')"
-                                    class="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow-sm flex items-center justify-center">
-                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                                </svg>
-                                <span wire:loading.remove wire:target="acceptAssignment">Accept Assignment</span>
-                                <span wire:loading wire:target="acceptAssignment">Accepting...</span>
-                            </button>
+    {{-- Quick Actions: Call & Navigate --}}
+    <div class="px-4 mt-3 flex gap-3">
+        @if($maintenanceRequest->tenant && $maintenanceRequest->tenant->phone)
+            <a href="tel:{{ $maintenanceRequest->tenant->phone }}"
+               class="flex-1 bg-white rounded-xl p-4 shadow-sm flex items-center justify-center active:bg-gray-50 border-2 border-transparent active:border-blue-300 transition-colors">
+                <svg class="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                </svg>
+                <span class="font-medium text-gray-900">Call Tenant</span>
+            </a>
+        @endif
 
-                            <!-- Reject Button -->
-                            <button wire:click="$set('showRejectModal', true)"
-                                    type="button"
-                                    class="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow-sm flex items-center justify-center">
-                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                </svg>
-                                Reject Assignment
-                            </button>
-                        </div>
-                    </div>
+        <a href="https://maps.google.com/?q={{ urlencode($maintenanceRequest->property->address) }}"
+           target="_blank"
+           class="flex-1 bg-white rounded-xl p-4 shadow-sm flex items-center justify-center active:bg-gray-50 border-2 border-transparent active:border-green-300 transition-colors">
+            <svg class="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            <span class="font-medium text-gray-900">Navigate</span>
+        </a>
+    </div>
 
-                @elseif($maintenanceRequest->status === 'assigned')
-                    <div class="mt-6 pt-6 border-t">
-                        <button wire:click="updateStatus('in_progress')"
-                                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                            Start Work
-                        </button>
-                    </div>
-                @elseif($maintenanceRequest->status === 'in_progress')
-                    <div class="mt-6 pt-6 border-t">
-                        <button wire:click="updateStatus('completed')"
-                                class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
-                            Mark as Completed
-                        </button>
-                    </div>
-                @endif
+    {{-- Tab Navigation --}}
+    <div class="px-4 mt-4">
+        <div class="bg-white rounded-xl shadow-sm p-1 flex">
+            <button @click="activeTab = 'overview'"
+                    :class="activeTab === 'overview' ? 'bg-blue-600 text-white' : 'text-gray-600'"
+                    class="flex-1 py-2.5 px-4 rounded-lg font-medium text-sm transition-colors">
+                Overview
+            </button>
+            <button @click="activeTab = 'updates'"
+                    :class="activeTab === 'updates' ? 'bg-blue-600 text-white' : 'text-gray-600'"
+                    class="flex-1 py-2.5 px-4 rounded-lg font-medium text-sm transition-colors">
+                Updates ({{ $updates->total() }})
+            </button>
+            <button @click="activeTab = 'add'"
+                    :class="activeTab === 'add' ? 'bg-blue-600 text-white' : 'text-gray-600'"
+                    class="flex-1 py-2.5 px-4 rounded-lg font-medium text-sm transition-colors">
+                + Add
+            </button>
+        </div>
+    </div>
+
+    {{-- Tab Content --}}
+    <div class="px-4 mt-4">
+        {{-- Overview Tab --}}
+        <div x-show="activeTab === 'overview'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
+            {{-- Description --}}
+            <div class="bg-white rounded-xl shadow-sm p-4 mb-3">
+                <h3 class="font-semibold text-gray-900 mb-2 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/>
+                    </svg>
+                    Description
+                </h3>
+                <p class="text-gray-700 text-sm leading-relaxed">{{ $maintenanceRequest->description }}</p>
             </div>
 
-            <!-- Updates/Timeline -->
-            <div class="bg-white shadow rounded-lg p-6">
-                <h2 class="text-lg font-semibold text-gray-900 mb-4">Updates & Timeline</h2>
-
-                <!-- Add Update Form -->
-                <div class="mb-6 p-4 bg-gray-50 rounded-lg">
-                    <form wire:submit.prevent="addUpdate">
-                        <div class="mb-4">
-                            <textarea wire:model="message" rows="3"
-                                      placeholder="Add an update or comment..."
-                                      class="w-full border border-gray-300 rounded-md px-3 py-2"></textarea>
-                            @error('message')
-                                <div class="bg-red-50 border border-red-200 rounded-md p-2 text-red-800 text-sm mt-2">
-                                    {{ $message }}
-                                </div>
-                            @enderror
-                        </div>
-
-                        <div class="flex items-start justify-between gap-4">
-                            <div class="flex-1">
-                                <input type="file"
-                                       wire:model="photos"
-                                       multiple
-                                       accept="image/*"
-                                       id="vendor-photo-upload"
-                                       class="text-sm">
-
-                                <!-- Client-side error message -->
-                                <div id="vendor-file-size-error" class="hidden bg-red-50 border border-red-200 rounded-md p-2 text-red-800 text-xs mt-2">
-                                    <div class="flex items-start">
-                                        <svg class="h-4 w-4 text-red-400 mr-1 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
-                                        </svg>
-                                        <div id="vendor-file-size-error-message" class="flex-1"></div>
-                                    </div>
-                                </div>
-
-                                <!-- Upload Progress -->
-                                <div wire:loading wire:target="photos" class="flex items-center text-blue-600 text-sm mt-1">
-                                    <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    Uploading photos...
-                                </div>
-                                <a class="text-xs text-gray-500 mt-2 block">
-                                    Maximum file size: 5MB per image. Total limit: 30MB
-                                </a>
-
-                                <!-- Upload Success -->
-                                <div wire:loading.remove wire:target="photos" id="vendor-success-indicator">
-                                    @if(is_array($photos) && count($photos) > 0)
-                                        <div id="vendor-success-message" class="flex items-center text-green-600 text-sm mt-1">
-                                            <svg class="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                                            </svg>
-                                            {{ count($photos) }} photo(s) uploaded - Ready to add
-                                        </div>
-                                    @endif
-                                </div>
-
-                                <div class="mt-4">
-                                    <button type="submit"
-                                            id="vendor-add-update-button"
-                                            wire:loading.attr="disabled"
-                                            wire:target="photos,addUpdate"
-                                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:bg-gray-400 disabled:cursor-not-allowed">
-                                        <span wire:loading.remove wire:target="addUpdate">Add Update</span>
-                                        <span wire:loading wire:target="addUpdate">Adding...</span>
-                                    </button>
-                                </div>
+            {{-- Photos --}}
+            @if($maintenanceRequest->photos && count($maintenanceRequest->photos) > 0)
+                <div class="bg-white rounded-xl shadow-sm p-4 mb-3">
+                    <h3 class="font-semibold text-gray-900 mb-3 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        Photos ({{ count($maintenanceRequest->photos) }})
+                    </h3>
+                    <div class="grid grid-cols-3 gap-2">
+                        @foreach($maintenanceRequest->photos as $index => $photo)
+                            <div class="relative aspect-square rounded-lg overflow-hidden bg-gray-100"
+                                 @click="photoPreview = '{{ Storage::url($photo) }}'">
+                                <img src="{{ Storage::url($photo) }}"
+                                     alt="Request photo {{ $index + 1 }}"
+                                     class="w-full h-full object-cover">
                             </div>
-                        </div>
-                    </form>
+                        @endforeach
+                    </div>
                 </div>
+            @endif
 
-                <!-- Timeline Events -->
-                <div class="space-y-6">
-                    @forelse($updates as $update)
-                        <div class="flex gap-4">
-                            <div class="flex-shrink-0">
+            {{-- Contact Info --}}
+            <div class="bg-white rounded-xl shadow-sm p-4 mb-3">
+                <h3 class="font-semibold text-gray-900 mb-3 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                    </svg>
+                    Contact Information
+                </h3>
+
+                @if($maintenanceRequest->tenant)
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-500 text-sm">Tenant</span>
+                            <span class="font-medium text-gray-900">{{ $maintenanceRequest->tenant->name }}</span>
+                        </div>
+                        @if($maintenanceRequest->tenant->phone)
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-500 text-sm">Phone</span>
+                                <a href="tel:{{ $maintenanceRequest->tenant->phone }}" class="font-medium text-blue-600">
+                                    {{ $maintenanceRequest->tenant->phone }}
+                                </a>
+                            </div>
+                        @endif
+                        @if($maintenanceRequest->tenant->email)
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-500 text-sm">Email</span>
+                                <a href="mailto:{{ $maintenanceRequest->tenant->email }}" class="font-medium text-blue-600 text-sm truncate max-w-[180px]">
+                                    {{ $maintenanceRequest->tenant->email }}
+                                </a>
+                            </div>
+                        @endif
+                    </div>
+                @endif
+
+                <div class="border-t mt-3 pt-3">
+                    <div class="flex items-start justify-between">
+                        <span class="text-gray-500 text-sm">Address</span>
+                        <span class="font-medium text-gray-900 text-right text-sm max-w-[200px]">{{ $maintenanceRequest->property->address }}</span>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Request Details --}}
+            <div class="bg-white rounded-xl shadow-sm p-4 mb-3">
+                <h3 class="font-semibold text-gray-900 mb-3 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                    Request Details
+                </h3>
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-500 text-sm">Submitted</span>
+                        <span class="font-medium text-gray-900 text-sm">{{ $maintenanceRequest->created_at->format('M d, Y g:i A') }}</span>
+                    </div>
+                    @if($maintenanceRequest->assigned_at)
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-500 text-sm">Assigned</span>
+                            <span class="font-medium text-gray-900 text-sm">{{ $maintenanceRequest->assigned_at->format('M d, Y g:i A') }}</span>
+                        </div>
+                    @endif
+                    @if($maintenanceRequest->accepted_at)
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-500 text-sm">Accepted</span>
+                            <span class="font-medium text-gray-900 text-sm">{{ $maintenanceRequest->accepted_at->format('M d, Y g:i A') }}</span>
+                        </div>
+                    @endif
+                    @if($maintenanceRequest->started_at)
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-500 text-sm">Work Started</span>
+                            <span class="font-medium text-gray-900 text-sm">{{ $maintenanceRequest->started_at->format('M d, Y g:i A') }}</span>
+                        </div>
+                    @endif
+                    @if($maintenanceRequest->estimated_cost)
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-500 text-sm">Estimated Cost</span>
+                            <span class="font-medium text-gray-900">${{ number_format($maintenanceRequest->estimated_cost, 2) }}</span>
+                        </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+
+        {{-- Updates Tab --}}
+        <div x-show="activeTab === 'updates'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
+            <div class="space-y-3">
+                @forelse($updates as $update)
+                    <div class="bg-white rounded-xl shadow-sm p-4">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 mr-3">
                                 @if($update->update_type === 'comment')
-                                    <span class="inline-flex items-center justify-center h-10 w-10 rounded-full bg-blue-100">
-                                        <svg class="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                                         </svg>
-                                    </span>
-                                @elseif($update->update_type === 'status_change')
-                                    <span class="inline-flex items-center justify-center h-10 w-10 rounded-full bg-green-100">
-                                        <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    </div>
+                                @else
+                                    <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                         </svg>
-                                    </span>
-                                @else
-                                    <span class="inline-flex items-center justify-center h-10 w-10 rounded-full bg-gray-100">
-                                        <svg class="h-6 w-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                        </svg>
-                                    </span>
+                                    </div>
                                 @endif
                             </div>
-                            <div class="flex-1">
+                            <div class="flex-1 min-w-0">
                                 <div class="flex items-center justify-between mb-1">
-                                    <p class="font-semibold text-gray-900">{{ $update->user->name ?? 'System' }}</p>
+                                    <p class="font-semibold text-gray-900 text-sm">{{ $update->user->name ?? 'System' }}</p>
                                     <span class="text-xs text-gray-500">{{ $update->created_at->diffForHumans() }}</span>
                                 </div>
-                                <p class="text-sm text-gray-700 whitespace-pre-line">{{ $update->message }}</p>
+                                <p class="text-gray-700 text-sm whitespace-pre-line">{{ $update->message }}</p>
 
                                 @if($update->photos && count($update->photos) > 0)
-                                    <div class="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
+                                    <div class="mt-3 grid grid-cols-3 gap-2">
                                         @foreach($update->photos as $photo)
-                                            <img src="{{ Storage::url($photo) }}" alt="Update photo"
-                                                 class="w-full h-24 object-cover rounded-lg cursor-pointer"
-                                                 onclick="window.open('{{ Storage::url($photo) }}', '_blank')">
+                                            <div class="relative aspect-square rounded-lg overflow-hidden bg-gray-100"
+                                                 @click="photoPreview = '{{ Storage::url($photo) }}'">
+                                                <img src="{{ Storage::url($photo) }}"
+                                                     alt="Update photo"
+                                                     class="w-full h-full object-cover">
+                                            </div>
                                         @endforeach
                                     </div>
                                 @endif
                             </div>
                         </div>
-                    @empty
-                        <p class="text-gray-500 text-center py-6">No updates yet.</p>
-                    @endforelse
-
-                    <!-- Pagination -->
-                    @if($updates->hasPages())
-                        <div class="mt-6">
-                            {{ $updates->links() }}
+                    </div>
+                @empty
+                    <div class="bg-white rounded-xl shadow-sm p-8 text-center">
+                        <div class="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                            </svg>
                         </div>
-                    @endif
-                </div>
-            </div>
-        </main>
+                        <p class="text-gray-500 font-medium">No updates yet</p>
+                        <p class="text-gray-400 text-sm mt-1">Add the first update to this request</p>
+                    </div>
+                @endforelse
 
-        <!-- Sidebar -->
-        <aside class="lg:w-80 space-y-6">
-            <!-- Contact Info -->
-            <div class="bg-white shadow rounded-lg p-6">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
-
-                @if($maintenanceRequest->tenant)
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-500">Tenant</label>
-                        <p class="mt-1 text-sm text-gray-900">{{ $maintenanceRequest->tenant->name }}</p>
-                        @if($maintenanceRequest->tenant->phone)
-                            <p class="mt-1 text-sm text-blue-600">{{ $maintenanceRequest->tenant->phone }}</p>
-                        @endif
-                        @if($maintenanceRequest->tenant->email)
-                            <p class="mt-1 text-sm text-blue-600">{{ $maintenanceRequest->tenant->email }}</p>
-                        @endif
+                @if($updates->hasPages())
+                    <div class="mt-4">
+                        {{ $updates->links() }}
                     </div>
                 @endif
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-500">Property Address</label>
-                    <p class="mt-1 text-sm text-gray-900">{{ $maintenanceRequest->property->address }}</p>
-                </div>
             </div>
+        </div>
 
-            <!-- Quick Stats -->
-            <div class="bg-white shadow rounded-lg p-6">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">Request Details</h3>
+        {{-- Add Update Tab --}}
+        <div x-show="activeTab === 'add'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
+            <form wire:submit.prevent="addUpdate" class="bg-white rounded-xl shadow-sm p-4">
+                <h3 class="font-semibold text-gray-900 mb-4">Add Update</h3>
 
-                <div class="space-y-3">
-                    <div>
-                        <label class="block text-xs font-medium text-gray-500 uppercase">Category</label>
-                        <p class="mt-1 text-sm text-gray-900">{{ ucfirst($maintenanceRequest->category) }}</p>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-500 uppercase">Priority</label>
-                        <p class="mt-1">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-{{ $maintenanceRequest->priority_color }}-100 text-{{ $maintenanceRequest->priority_color }}-800">
-                                {{ ucfirst($maintenanceRequest->priority) }}
-                            </span>
-                        </p>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-500 uppercase">Status</label>
-                        <p class="mt-1">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-{{ $maintenanceRequest->status_color }}-100 text-{{ $maintenanceRequest->status_color }}-800">
-                                {{ $maintenanceRequest->status_label }}
-                            </span>
-                        </p>
-                    </div>
-                    @if($maintenanceRequest->assigned_at)
-                        <div>
-                            <label class="block text-xs font-medium text-gray-500 uppercase">Assigned</label>
-                            <p class="mt-1 text-sm text-gray-900">{{ $maintenanceRequest->assigned_at->format('M d, Y') }}</p>
-                        </div>
-                    @endif
-                    @if($maintenanceRequest->accepted_at)
-                        <div>
-                            <label class="block text-xs font-medium text-gray-500 uppercase">Accepted</label>
-                            <p class="mt-1 text-sm text-gray-900">{{ $maintenanceRequest->accepted_at->format('M d, Y g:i A') }}</p>
-                        </div>
-                    @endif
+                {{-- Message Input --}}
+                <div class="mb-4">
+                    <textarea wire:model="message"
+                              rows="4"
+                              placeholder="Describe work progress, parts needed, or other details..."
+                              class="w-full border border-gray-300 rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"></textarea>
+                    @error('message')
+                        <p class="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded-lg">{{ $message }}</p>
+                    @enderror
                 </div>
-            </div>
-        </aside>
-    </div>
 
-    <!-- Rejection Modal -->
-    @if($showRejectModal)
-    <div class="fixed inset-0 z-50 overflow-y-auto" x-data="{ show: @entangle('showRejectModal') }">
-        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-            <!-- Overlay -->
-            <div x-show="show"
-                 x-transition:enter="ease-out duration-300"
-                 x-transition:enter-start="opacity-0"
-                 x-transition:enter-end="opacity-100"
-                 x-transition:leave="ease-in duration-200"
-                 x-transition:leave-start="opacity-100"
-                 x-transition:leave-end="opacity-0"
-                 class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
-                 @click="$wire.set('showRejectModal', false)"></div>
+                {{-- Photo Upload --}}
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Add Photos</label>
 
-            <!-- Modal Content -->
-            <div x-show="show"
-                 x-transition:enter="ease-out duration-300"
-                 x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                 x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
-                 x-transition:leave="ease-in duration-200"
-                 x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
-                 x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                 class="relative inline-block w-full max-w-lg my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
+                    {{-- Camera Capture Button (Mobile) --}}
+                    <div class="grid grid-cols-2 gap-3 mb-3">
+                        <label class="flex items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-blue-400 active:bg-blue-50 transition-colors">
+                            <input type="file"
+                                   wire:model="photos"
+                                   accept="image/*"
+                                   capture="environment"
+                                   class="hidden"
+                                   id="camera-capture">
+                            <div class="text-center">
+                                <svg class="w-8 h-8 mx-auto text-gray-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                </svg>
+                                <span class="text-sm text-gray-600">Take Photo</span>
+                            </div>
+                        </label>
 
-                <!-- Header -->
-                <div class="px-6 py-4 bg-red-50 border-b border-red-100">
-                    <div class="flex items-center justify-between">
-                        <h3 class="text-lg font-semibold text-red-900">Reject Assignment</h3>
-                        <button wire:click="$set('showRejectModal', false)" class="text-red-400 hover:text-red-600">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        <label class="flex items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-blue-400 active:bg-blue-50 transition-colors">
+                            <input type="file"
+                                   wire:model="photos"
+                                   accept="image/*"
+                                   multiple
+                                   class="hidden"
+                                   id="gallery-upload">
+                            <div class="text-center">
+                                <svg class="w-8 h-8 mx-auto text-gray-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                </svg>
+                                <span class="text-sm text-gray-600">Gallery</span>
+                            </div>
+                        </label>
+                    </div>
+
+                    {{-- Upload Progress --}}
+                    <div wire:loading wire:target="photos" class="flex items-center justify-center p-4 bg-blue-50 rounded-xl">
+                        <svg class="animate-spin h-5 w-5 text-blue-600 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span class="text-blue-600 font-medium">Uploading...</span>
+                    </div>
+
+                    {{-- Photo Preview --}}
+                    @if(is_array($photos) && count($photos) > 0)
+                        <div class="mt-3 grid grid-cols-4 gap-2">
+                            @foreach($photos as $photo)
+                                <div class="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
+                                    <img src="{{ $photo->temporaryUrl() }}" class="w-full h-full object-cover">
+                                </div>
+                            @endforeach
+                        </div>
+                        <p class="text-sm text-green-600 mt-2 flex items-center">
+                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                             </svg>
-                        </button>
-                    </div>
-                </div>
+                            {{ count($photos) }} photo(s) ready
+                        </p>
+                    @endif
 
-                <!-- Body -->
-                <div class="px-6 py-4">
-                    <p class="text-sm text-gray-600 mb-4">
-                        Please select a reason for rejecting this assignment. This will help the property manager find another vendor quickly.
-                    </p>
-
-                    <!-- Preset Reasons -->
-                    <div class="space-y-2 mb-4">
-                        <label class="flex items-start cursor-pointer hover:bg-gray-50 p-2 rounded">
-                            <input type="radio" wire:model="rejectionReason" value="too_busy"
-                                   class="mt-1 mr-3 text-red-600 focus:ring-red-500">
-                            <div>
-                                <span class="text-sm font-medium text-gray-900">Currently too busy / Fully booked</span>
-                                <p class="text-xs text-gray-500">You don't have capacity to take on this work</p>
-                            </div>
-                        </label>
-
-                        <label class="flex items-start cursor-pointer hover:bg-gray-50 p-2 rounded">
-                            <input type="radio" wire:model="rejectionReason" value="out_of_area"
-                                   class="mt-1 mr-3 text-red-600 focus:ring-red-500">
-                            <div>
-                                <span class="text-sm font-medium text-gray-900">Property location outside service area</span>
-                                <p class="text-xs text-gray-500">This location is too far from your service area</p>
-                            </div>
-                        </label>
-
-                        <label class="flex items-start cursor-pointer hover:bg-gray-50 p-2 rounded">
-                            <input type="radio" wire:model="rejectionReason" value="lacks_expertise"
-                                   class="mt-1 mr-3 text-red-600 focus:ring-red-500">
-                            <div>
-                                <span class="text-sm font-medium text-gray-900">Requires specialized expertise</span>
-                                <p class="text-xs text-gray-500">This work requires skills you don't have</p>
-                            </div>
-                        </label>
-
-                        <label class="flex items-start cursor-pointer hover:bg-gray-50 p-2 rounded">
-                            <input type="radio" wire:model="rejectionReason" value="emergency_unavailable"
-                                   class="mt-1 mr-3 text-red-600 focus:ring-red-500">
-                            <div>
-                                <span class="text-sm font-medium text-gray-900">Cannot handle emergency priority</span>
-                                <p class="text-xs text-gray-500">Unable to respond to emergency timing</p>
-                            </div>
-                        </label>
-
-                        <label class="flex items-start cursor-pointer hover:bg-gray-50 p-2 rounded">
-                            <input type="radio" wire:model="rejectionReason" value="insufficient_info"
-                                   class="mt-1 mr-3 text-red-600 focus:ring-red-500">
-                            <div>
-                                <span class="text-sm font-medium text-gray-900">Insufficient information</span>
-                                <p class="text-xs text-gray-500">Need more details to assess the job</p>
-                            </div>
-                        </label>
-
-                        <label class="flex items-start cursor-pointer hover:bg-gray-50 p-2 rounded">
-                            <input type="radio" wire:model="rejectionReason" value="other"
-                                   class="mt-1 mr-3 text-red-600 focus:ring-red-500">
-                            <div>
-                                <span class="text-sm font-medium text-gray-900">Other reason</span>
-                                <p class="text-xs text-gray-500">Specify in the notes below</p>
-                            </div>
-                        </label>
-                    </div>
-
-                    @error('rejectionReason')
-                        <p class="text-red-600 text-sm mb-3 bg-red-50 border border-red-200 rounded-md p-2">{{ $message }}</p>
+                    @error('photos.*')
+                        <p class="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded-lg">{{ $message }}</p>
                     @enderror
 
-                    <!-- Additional Notes -->
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            Additional Notes (Optional)
-                        </label>
-                        <textarea wire:model="rejectionNotes" rows="3"
-                                  placeholder="Provide any additional details that might help..."
-                                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"></textarea>
-                        <p class="text-xs text-gray-500 mt-1">Max 500 characters</p>
-                        @error('rejectionNotes')
-                            <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
+                    <p class="text-xs text-gray-500 mt-2">Max 5MB per image</p>
                 </div>
 
-                <!-- Footer -->
-                <div class="px-6 py-4 bg-gray-50 border-t flex gap-3">
+                {{-- Submit Button --}}
+                <button type="submit"
+                        wire:loading.attr="disabled"
+                        wire:target="photos,addUpdate"
+                        class="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-400 text-white font-semibold py-4 px-6 rounded-xl transition-colors text-lg">
+                    <span wire:loading.remove wire:target="addUpdate">Add Update</span>
+                    <span wire:loading wire:target="addUpdate">Adding...</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    {{-- Sticky Bottom Action Bar --}}
+    <div class="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg safe-area-pb z-50">
+        <div class="px-4 py-3">
+            @if($maintenanceRequest->status === 'pending_acceptance')
+                <div class="flex gap-3">
+                    <button wire:click="$set('showRejectModal', true)"
+                            class="flex-1 bg-red-100 hover:bg-red-200 active:bg-red-300 text-red-700 font-semibold py-4 px-6 rounded-xl transition-colors flex items-center justify-center min-h-[56px]">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                        Reject
+                    </button>
+                    <button wire:click="acceptAssignment"
+                            wire:loading.attr="disabled"
+                            onclick="return confirm('Accept this assignment?')"
+                            class="flex-1 bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:bg-green-400 text-white font-semibold py-4 px-6 rounded-xl transition-colors flex items-center justify-center min-h-[56px]">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        <span wire:loading.remove wire:target="acceptAssignment">Accept Job</span>
+                        <span wire:loading wire:target="acceptAssignment">Accepting...</span>
+                    </button>
+                </div>
+            @elseif($maintenanceRequest->status === 'assigned')
+                <button wire:click="updateStatus('in_progress')"
+                        wire:loading.attr="disabled"
+                        class="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-blue-400 text-white font-semibold py-4 px-6 rounded-xl transition-colors flex items-center justify-center min-h-[56px] text-lg">
+                    <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span wire:loading.remove wire:target="updateStatus">Start Work</span>
+                    <span wire:loading wire:target="updateStatus">Starting...</span>
+                </button>
+            @elseif($maintenanceRequest->status === 'in_progress')
+                <button wire:click="updateStatus('completed')"
+                        wire:loading.attr="disabled"
+                        class="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:bg-green-400 text-white font-semibold py-4 px-6 rounded-xl transition-colors flex items-center justify-center min-h-[56px] text-lg">
+                    <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span wire:loading.remove wire:target="updateStatus">Complete Work</span>
+                    <span wire:loading wire:target="updateStatus">Completing...</span>
+                </button>
+            @elseif($maintenanceRequest->status === 'completed')
+                <div class="bg-green-50 rounded-xl p-4 text-center">
+                    <div class="flex items-center justify-center text-green-700">
+                        <svg class="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="font-semibold">Work Completed</span>
+                    </div>
+                    @if($maintenanceRequest->completed_at)
+                        <p class="text-sm text-green-600 mt-1">{{ $maintenanceRequest->completed_at->format('M d, Y g:i A') }}</p>
+                    @endif
+                </div>
+            @endif
+        </div>
+    </div>
+
+    {{-- Rejection Modal --}}
+    @if($showRejectModal)
+    <div class="fixed inset-0 z-[60] overflow-y-auto" x-data x-init="document.body.classList.add('overflow-hidden')" x-destroy="document.body.classList.remove('overflow-hidden')">
+        <div class="fixed inset-0 bg-black bg-opacity-50" wire:click="$set('showRejectModal', false)"></div>
+
+        <div class="fixed inset-x-0 bottom-0 transform transition-transform duration-300 ease-out">
+            <div class="bg-white rounded-t-3xl max-h-[85vh] overflow-y-auto safe-area-pb">
+                {{-- Handle --}}
+                <div class="flex justify-center py-3">
+                    <div class="w-12 h-1.5 bg-gray-300 rounded-full"></div>
+                </div>
+
+                {{-- Header --}}
+                <div class="px-6 pb-4 border-b">
+                    <h3 class="text-xl font-bold text-gray-900">Reject Assignment</h3>
+                    <p class="text-sm text-gray-500 mt-1">Please select a reason to help the property manager</p>
+                </div>
+
+                {{-- Reasons --}}
+                <div class="px-6 py-4 space-y-2">
+                    @foreach([
+                        'too_busy' => ['label' => 'Currently too busy', 'desc' => 'Fully booked right now'],
+                        'out_of_area' => ['label' => 'Outside service area', 'desc' => 'Location too far'],
+                        'lacks_expertise' => ['label' => 'Needs specialist', 'desc' => 'Requires different skills'],
+                        'emergency_unavailable' => ['label' => "Can't handle emergency", 'desc' => 'Unable to respond urgently'],
+                        'insufficient_info' => ['label' => 'Need more details', 'desc' => 'Insufficient information'],
+                        'other' => ['label' => 'Other reason', 'desc' => 'Explain in notes'],
+                    ] as $value => $option)
+                        <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer transition-colors
+                                      {{ $rejectionReason === $value ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300' }}">
+                            <input type="radio" wire:model="rejectionReason" value="{{ $value }}" class="hidden">
+                            <div class="flex-1">
+                                <span class="font-medium text-gray-900">{{ $option['label'] }}</span>
+                                <p class="text-sm text-gray-500">{{ $option['desc'] }}</p>
+                            </div>
+                            @if($rejectionReason === $value)
+                                <svg class="w-6 h-6 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                            @endif
+                        </label>
+                    @endforeach
+
+                    @error('rejectionReason')
+                        <p class="text-red-600 text-sm bg-red-50 p-3 rounded-xl">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                {{-- Notes --}}
+                <div class="px-6 pb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Additional Notes (Optional)</label>
+                    <textarea wire:model="rejectionNotes"
+                              rows="3"
+                              placeholder="Any additional details..."
+                              class="w-full border border-gray-300 rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"></textarea>
+                </div>
+
+                {{-- Actions --}}
+                <div class="px-6 pb-6 flex gap-3">
+                    <button wire:click="$set('showRejectModal', false)"
+                            class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-4 px-6 rounded-xl transition-colors">
+                        Cancel
+                    </button>
                     <button wire:click="confirmRejection"
                             wire:loading.attr="disabled"
-                            class="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                            class="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-semibold py-4 px-6 rounded-xl transition-colors">
                         <span wire:loading.remove wire:target="confirmRejection">Confirm Rejection</span>
                         <span wire:loading wire:target="confirmRejection">Rejecting...</span>
-                    </button>
-                    <button wire:click="$set('showRejectModal', false)"
-                            type="button"
-                            class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors">
-                        Cancel
                     </button>
                 </div>
             </div>
@@ -462,108 +563,103 @@
     </div>
     @endif
 
-    <!-- Completion Modal -->
+    {{-- Completion Modal --}}
     @if($showCompleteModal)
-    <div class="fixed inset-0 z-50 overflow-y-auto" x-data="{ show: @entangle('showCompleteModal') }">
-        <!-- Background overlay -->
-        <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity"></div>
+    <div class="fixed inset-0 z-[60] overflow-y-auto" x-data x-init="document.body.classList.add('overflow-hidden')" x-destroy="document.body.classList.remove('overflow-hidden')">
+        <div class="fixed inset-0 bg-black bg-opacity-50" wire:click="$set('showCompleteModal', false)"></div>
 
-        <div class="flex items-center justify-center min-h-screen p-4">
-            <!-- Backdrop click to close -->
-            <div class="fixed inset-0"
-                 @click="$wire.set('showCompleteModal', false)"></div>
+        <div class="fixed inset-x-0 bottom-0 transform transition-transform duration-300 ease-out">
+            <div class="bg-white rounded-t-3xl max-h-[90vh] overflow-y-auto safe-area-pb">
+                {{-- Handle --}}
+                <div class="flex justify-center py-3">
+                    <div class="w-12 h-1.5 bg-gray-300 rounded-full"></div>
+                </div>
 
-            <!-- Modal Content -->
-            <div class="relative bg-white rounded-lg shadow-xl max-w-lg w-full mx-auto z-10">
-                <!-- Header -->
-                <div class="bg-green-50 px-6 py-4 border-b border-green-100 rounded-t-lg">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0 bg-green-100 rounded-full p-2 mr-3">
-                                <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                </svg>
-                            </div>
-                            <h3 class="text-lg font-semibold text-green-900">Complete Work</h3>
-                        </div>
-                        <button wire:click="$set('showCompleteModal', false)" class="text-green-400 hover:text-green-600">
-                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                            </svg>
-                        </button>
+                {{-- Header --}}
+                <div class="px-6 pb-4 border-b flex items-center">
+                    <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mr-4">
+                        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-900">Complete Work</h3>
+                        <p class="text-sm text-gray-500">Provide completion details</p>
                     </div>
                 </div>
 
-                <!-- Body -->
+                {{-- Form --}}
                 <div class="px-6 py-4 space-y-4">
-                    <p class="text-sm text-gray-600">
-                        Please provide details about the completed work.
-                    </p>
-
-                    <!-- Completion Notes -->
+                    {{-- Completion Notes --}}
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
                             Completion Notes <span class="text-red-500">*</span>
                         </label>
-                        <textarea wire:model="completionNotes" rows="4"
-                                  placeholder="Describe the work completed, any parts used, and other relevant details..."
-                                  class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-green-500 focus:border-green-500"></textarea>
+                        <textarea wire:model="completionNotes"
+                                  rows="4"
+                                  placeholder="Describe work completed, parts used, etc..."
+                                  class="w-full border border-gray-300 rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none"></textarea>
                         @error('completionNotes')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
 
-                    <!-- Actual Cost -->
+                    {{-- Actual Cost --}}
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">
-                            Actual Cost (Optional)
-                        </label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Actual Cost (Optional)</label>
                         <div class="relative">
-                            <span class="absolute left-3 top-2 text-gray-500">$</span>
-                            <input type="number" wire:model="actualCost" step="0.01" min="0"
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-lg">$</span>
+                            <input type="number"
+                                   wire:model="actualCost"
+                                   step="0.01"
+                                   min="0"
                                    placeholder="0.00"
-                                   class="w-full border border-gray-300 rounded-md pl-7 pr-3 py-2 focus:ring-green-500 focus:border-green-500">
+                                   class="w-full border border-gray-300 rounded-xl pl-10 pr-4 py-3 text-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
                         </div>
-                        @error('actualCost')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
                         @if($maintenanceRequest->estimated_cost)
-                            <p class="mt-1 text-xs text-gray-500">
-                                Estimated cost: ${{ number_format($maintenanceRequest->estimated_cost, 2) }}
-                            </p>
+                            <p class="text-sm text-gray-500 mt-1">Estimated: ${{ number_format($maintenanceRequest->estimated_cost, 2) }}</p>
                         @endif
                     </div>
 
-                    <!-- Completion Photos -->
+                    {{-- Completion Photos --}}
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">
-                            Completion Photos (Optional)
-                        </label>
-                        <input type="file" wire:model="completionPhotos" multiple accept="image/*"
-                               id="completion-photo-upload"
-                               class="text-sm w-full border border-gray-300 rounded-md px-3 py-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Completion Photos (Optional)</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <label class="flex items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-green-400 active:bg-green-50">
+                                <input type="file" wire:model="completionPhotos" accept="image/*" capture="environment" class="hidden">
+                                <div class="text-center">
+                                    <svg class="w-8 h-8 mx-auto text-gray-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    </svg>
+                                    <span class="text-sm text-gray-600">Take Photo</span>
+                                </div>
+                            </label>
 
-                        <!-- Upload Progress -->
-                        <div wire:loading wire:target="completionPhotos" class="flex items-center text-blue-600 text-sm mt-1">
-                            <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <label class="flex items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-green-400 active:bg-green-50">
+                                <input type="file" wire:model="completionPhotos" accept="image/*" multiple class="hidden">
+                                <div class="text-center">
+                                    <svg class="w-8 h-8 mx-auto text-gray-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                    </svg>
+                                    <span class="text-sm text-gray-600">Gallery</span>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div wire:loading wire:target="completionPhotos" class="mt-3 flex items-center justify-center p-3 bg-green-50 rounded-xl">
+                            <svg class="animate-spin h-5 w-5 text-green-600 mr-2" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            Uploading photos...
+                            <span class="text-green-600 font-medium">Uploading...</span>
                         </div>
 
-                        @error('completionPhotos.*')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
-                        <p class="text-xs text-gray-500 mt-1">Maximum 5MB per image</p>
-
-                        <!-- Photo Preview -->
                         @if($completionPhotos && count($completionPhotos) > 0)
-                            <div class="mt-2 flex flex-wrap gap-2">
+                            <div class="mt-3 grid grid-cols-4 gap-2">
                                 @foreach($completionPhotos as $photo)
-                                    <div class="relative">
-                                        <img src="{{ $photo->temporaryUrl() }}"
-                                             class="h-16 w-16 object-cover rounded-lg border">
+                                    <div class="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
+                                        <img src="{{ $photo->temporaryUrl() }}" class="w-full h-full object-cover">
                                     </div>
                                 @endforeach
                             </div>
@@ -571,206 +667,51 @@
                     </div>
                 </div>
 
-                <!-- Footer -->
-                <div class="px-6 py-4 bg-gray-50 border-t rounded-b-lg flex gap-3">
+                {{-- Actions --}}
+                <div class="px-6 pb-6 flex gap-3">
+                    <button wire:click="$set('showCompleteModal', false)"
+                            class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-4 px-6 rounded-xl transition-colors">
+                        Cancel
+                    </button>
                     <button wire:click="completeWork"
                             wire:loading.attr="disabled"
-                            wire:loading.class="opacity-50 cursor-not-allowed"
-                            class="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
-                        <span wire:loading.remove wire:target="completeWork">Mark as Completed</span>
+                            class="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-semibold py-4 px-6 rounded-xl transition-colors">
+                        <span wire:loading.remove wire:target="completeWork">Mark Complete</span>
                         <span wire:loading wire:target="completeWork">Completing...</span>
-                    </button>
-                    <button wire:click="$set('showCompleteModal', false)"
-                            type="button"
-                            class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors">
-                        Cancel
                     </button>
                 </div>
             </div>
         </div>
     </div>
     @endif
-</div>{{-- End root Livewire div HERE --}}
 
-<!-- Success/Error Messages -->
-@if (session()->has('message'))
-    <div class="fixed bottom-4 right-4 bg-green-50 border border-green-200 rounded-lg p-4 shadow-lg z-50" x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 5000)">
-        <div class="flex items-center">
-            <svg class="h-5 w-5 text-green-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+    {{-- Photo Lightbox --}}
+    <div x-show="photoPreview"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 z-[70] bg-black flex items-center justify-center"
+         @click="photoPreview = null">
+        <button @click="photoPreview = null" class="absolute top-4 right-4 z-10 p-2 bg-black/50 rounded-full text-white">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>
-            <p class="text-green-800 font-medium">{{ session('message') }}</p>
-        </div>
+        </button>
+        <img :src="photoPreview" class="max-w-full max-h-full object-contain" @click.stop>
     </div>
-@endif
 
-@if (session()->has('error'))
-    <div class="fixed bottom-4 right-4 bg-red-50 border border-red-200 rounded-lg p-4 shadow-lg z-50" x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 5000)">
-        <div class="flex items-center">
-            <svg class="h-5 w-5 text-red-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
-            </svg>
-            <p class="text-red-800 font-medium">{{ session('error') }}</p>
-        </div>
-    </div>
-@endif
-
-<script>
-(function() {
-    'use strict';
-
-    const MAX_FILE_SIZE_MB = 5;
-    const MAX_TOTAL_SIZE_MB = 30;
-    const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
-    const MAX_TOTAL_SIZE_BYTES = MAX_TOTAL_SIZE_MB * 1024 * 1024;
-
-    let isUploading = false;
-    let hasUploadError = false;
-
-    function toggleButton(buttonId, disable, reason) {
-        const button = document.getElementById(buttonId);
-        if (!button) return;
-
-        if (disable) {
-            button.disabled = true;
-            button.classList.add('opacity-50', 'cursor-not-allowed');
-            console.log('🔒 Button DISABLED (' + reason + ')');
-        } else {
-            button.disabled = false;
-            button.classList.remove('opacity-50', 'cursor-not-allowed');
-            console.log('🔓 Button ENABLED (' + reason + ')');
-        }
-    }
-
-    function validateFileInput(inputId, errorDivId, errorMessageId, successMessageId, buttonId) {
-        const input = document.getElementById(inputId);
-        if (!input) {
-            console.log('⚠️ Input not found:', inputId);
-            return;
+    <style>
+        /* Safe area for iOS devices */
+        .safe-area-pb {
+            padding-bottom: env(safe-area-inset-bottom, 0);
         }
 
-        console.log('✅ Setting up validation for:', inputId);
-
-        input.addEventListener('change', function(e) {
-            console.log('📁 Files selected:', e.target.files.length);
-
-            const files = Array.from(e.target.files);
-            let totalSize = 0;
-            const oversizedFiles = [];
-
-            files.forEach(file => {
-                const sizeMB = (file.size / 1024 / 1024).toFixed(2);
-                console.log(`  - ${file.name}: ${sizeMB}MB`);
-                totalSize += file.size;
-
-                if (file.size > MAX_FILE_SIZE_BYTES) {
-                    oversizedFiles.push({ name: file.name, size: sizeMB });
-                }
-            });
-
-            const totalSizeMB = (totalSize / 1024 / 1024).toFixed(2);
-            console.log('📊 Total size: ' + totalSizeMB + 'MB');
-
-            const errorDiv = document.getElementById(errorDivId);
-            const errorMessage = document.getElementById(errorMessageId);
-            const successMessage = document.getElementById(successMessageId);
-            let message = '';
-            let hasError = false;
-
-            if (oversizedFiles.length > 0) {
-                console.log('❌ Individual files exceed ' + MAX_FILE_SIZE_MB + 'MB');
-                hasError = true;
-                message = '<p class="font-semibold mb-1">Files exceed ' + MAX_FILE_SIZE_MB + 'MB:</p><ul class="list-disc list-inside space-y-0.5">';
-                oversizedFiles.forEach(file => {
-                    message += '<li><strong>' + file.name + '</strong> (' + file.size + 'MB)</li>';
-                });
-                message += '</ul>';
-            }
-
-            if (totalSize > MAX_TOTAL_SIZE_BYTES) {
-                console.log('❌ Total exceeds ' + MAX_TOTAL_SIZE_MB + 'MB');
-                hasError = true;
-                if (message) message += '<div class="my-1 border-t border-red-300"></div>';
-                message += '<p class="font-semibold mb-1">⚠️ Total too large</p><p>Selected: ' + totalSizeMB + 'MB, Limit: ' + MAX_TOTAL_SIZE_MB + 'MB</p>';
-            }
-
-            if (hasError) {
-                hasUploadError = true;
-                e.target.value = '';
-                message += '<p class="text-xs mt-1 pt-1 border-t border-red-300">💡 Compress with <a href="https://tinypng.com" target="_blank" class="underline">TinyPNG</a></p>';
-
-                if (errorDiv && errorMessage) {
-                    errorMessage.innerHTML = message;
-                    errorDiv.classList.remove('hidden');
-                }
-                if (successMessage) successMessage.style.display = 'none';
-
-                toggleButton(buttonId, true, 'validation failed');
-                e.stopImmediatePropagation();
-                return false;
-            } else {
-                console.log('✅ Validation passed');
-                hasUploadError = false;
-                isUploading = true;
-                if (errorDiv) errorDiv.classList.add('hidden');
-                toggleButton(buttonId, true, 'upload in progress');
-            }
-        }, true);
-    }
-
-    function setup() {
-        validateFileInput('vendor-photo-upload', 'vendor-file-size-error', 'vendor-file-size-error-message', 'vendor-success-message', 'vendor-add-update-button');
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', setup);
-    } else {
-        setup();
-    }
-
-    document.addEventListener('livewire:init', function() {
-        console.log('🔌 Livewire init - vendor view');
-
-        document.addEventListener('livewire:upload-start', function(event) {
-            console.log('📤 Upload started (event)');
-            isUploading = true;
-            toggleButton('vendor-add-update-button', true, 'upload in progress');
-        });
-
-        document.addEventListener('livewire:upload-finish', function(event) {
-            console.log('✅ Upload finished (event)');
-            isUploading = false;
-            if (!hasUploadError) {
-                toggleButton('vendor-add-update-button', false, 'upload complete');
-            }
-        });
-
-        document.addEventListener('livewire:upload-error', function(event) {
-            console.log('❌ Upload error (event):', event.detail);
-            isUploading = false;
-            hasUploadError = true;
-            toggleButton('vendor-add-update-button', true, 'upload error');
-        });
-
-        Livewire.hook('request', ({ fail }) => {
-            fail(({ status, preventDefault }) => {
-                if (status === 413) {
-                    console.log('❌ 413 Error caught');
-                    preventDefault();
-                    hasUploadError = true;
-                    isUploading = false;
-
-                    const errorDiv = document.getElementById('vendor-file-size-error');
-                    const errorMessage = document.getElementById('vendor-file-size-error-message');
-                    if (errorDiv && errorMessage) {
-                        errorMessage.innerHTML = '<p class="font-semibold mb-1">⚠️ 413: Too Large</p><p>Server rejected. Total > ' + MAX_TOTAL_SIZE_MB + 'MB</p><p class="text-xs mt-1">💡 Upload fewer files or compress</p>';
-                        errorDiv.classList.remove('hidden');
-                    }
-
-                    toggleButton('vendor-add-update-button', true, '413 error');
-                }
-            });
-        });
-    });
-})();
-</script>
+        /* Ensure touch targets are at least 44px */
+        button, a, label, input[type="radio"], input[type="checkbox"] {
+            min-height: 44px;
+        }
+    </style>
+</div>
