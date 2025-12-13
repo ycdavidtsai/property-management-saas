@@ -32,8 +32,19 @@ Route::get('/home', function () {
 // Add this block:
 // Webhooks (Public)
 Route::post('/webhooks/twilio/status', [WebhookController::class, 'twilioStatus'])
-    ->name('webhooks.twilio.status');
-    
+    ->name('webhooks.twilio.status')
+    ->withoutMiddleware([
+        \App\Http\Middleware\VerifyCsrfToken::class,
+        \Illuminate\Foundation\Http\Middleware\ValidatePostSize::class,
+    ]);
+
+// Route::post('/webhooks/twilio/status', [WebhookController::class, 'twilioStatus'])
+//     ->name('webhooks.twilio.status')
+//     ->withoutMiddleware([
+//         \App\Http\Middleware\VerifyCsrfToken::class,
+//         \Illuminate\Foundation\Http\Middleware\ValidatePostSize::class,
+//     ]);
+
 // Short URL redirect (public)
 Route::get('/s/{code}', [VendorSetupController::class, 'handleShortUrl'])
     ->name('short-url.redirect');
@@ -209,15 +220,5 @@ Route::middleware(['auth'])->prefix('test')->group(function () {
     Route::get('/notification/sms', [App\Http\Controllers\TestNotificationController::class, 'testSms']);
     Route::post('/notification/preview', [App\Http\Controllers\TestNotificationController::class, 'previewRecipients']);
 });
-
-// =====================
-// WEBHOOK ROUTES (No auth required)
-// =====================
-// Route::post('/webhooks/twilio/status', [WebhookController::class, 'twilioStatus'])
-//     ->name('webhooks.twilio.status')
-//     ->withoutMiddleware([
-//         \App\Http\Middleware\VerifyCsrfToken::class,
-//         \Illuminate\Foundation\Http\Middleware\ValidatePostSize::class,
-//     ]);
 
 require __DIR__.'/auth.php';

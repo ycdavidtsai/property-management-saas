@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\View;
 use App\Mail\GenericNotificationMail;
 use Twilio\Rest\Client as TwilioClient;
+use Illuminate\Support\Facades\Route; // Add this at top
 
 class NotificationService
 {
@@ -241,8 +242,16 @@ class NotificationService
 
             $appUrl = config('app.url');
             if ($appUrl && !str_contains($appUrl, 'localhost') && !str_contains($appUrl, '127.0.0.1')) {
-                //$messageParams['statusCallback'] = url('/twilio-webhook.php');
-                $messageParams['statusCallback'] = route('webhooks.twilio.status');
+
+                // Check if route exists before using it to prevent crash
+                if (Route::has('webhooks.twilio.status')) {
+                    $messageParams['statusCallback'] = route('webhooks.twilio.status');
+                }
+                // Fallback to manual URL if route not found (e.g. caching issue)
+                else {
+                    $messageParams['statusCallback'] = url('/webhooks/twilio/status');
+                    Log::warning('Twilio status route not found in cache, using manual URL fallback');
+                }
             }
 
             $this->twilio->messages->create($user->phone, $messageParams);
@@ -529,10 +538,23 @@ class NotificationService
             ];
 
             // Only add statusCallback if we have a valid public URL (not localhost)
+            // $appUrl = config('app.url');
+            // if ($appUrl && !str_contains($appUrl, 'localhost') && !str_contains($appUrl, '127.0.0.1')) {
+            //     $messageParams['statusCallback'] = url('/twilio-webhook.php');
+            //     //$messageParams['statusCallback'] = route('webhooks.twilio.status');
+            // }
             $appUrl = config('app.url');
             if ($appUrl && !str_contains($appUrl, 'localhost') && !str_contains($appUrl, '127.0.0.1')) {
-                //$messageParams['statusCallback'] = url('/twilio-webhook.php');
-                $messageParams['statusCallback'] = route('webhooks.twilio.status');
+
+                // Check if route exists before using it to prevent crash
+                if (Route::has('webhooks.twilio.status')) {
+                    $messageParams['statusCallback'] = route('webhooks.twilio.status');
+                }
+                // Fallback to manual URL if route not found (e.g. caching issue)
+                else {
+                    $messageParams['statusCallback'] = url('/webhooks/twilio/status');
+                    Log::warning('Twilio status route not found in cache, using manual URL fallback');
+                }
             }
 
             $message = $this->twilio->messages->create(
@@ -598,8 +620,16 @@ class NotificationService
             // }
             $appUrl = config('app.url');
             if ($appUrl && !str_contains($appUrl, 'localhost') && !str_contains($appUrl, '127.0.0.1')) {
-                //$messageParams['statusCallback'] = url('/twilio-webhook.php');
-                $messageParams['statusCallback'] = route('webhooks.twilio.status');
+
+                // Check if route exists before using it to prevent crash
+                if (Route::has('webhooks.twilio.status')) {
+                    $messageParams['statusCallback'] = route('webhooks.twilio.status');
+                }
+                // Fallback to manual URL if route not found (e.g. caching issue)
+                else {
+                    $messageParams['statusCallback'] = url('/webhooks/twilio/status');
+                    Log::warning('Twilio status route not found in cache, using manual URL fallback');
+                }
             }
 
             $message = $this->twilio->messages->create(
@@ -882,15 +912,29 @@ class NotificationService
                         'status' => 'pending',
                     ]);
 
-                    $appUrl = config('app.url');
+
                     $messageParams = [
                         'from' => config('services.twilio.phone'),
                         'body' => $smsContent,
                     ];
 
+                    // if ($appUrl && !str_contains($appUrl, 'localhost') && !str_contains($appUrl, '127.0.0.1')) {
+                    //     $messageParams['statusCallback'] = url('/twilio-webhook.php');
+                    //     //$messageParams['statusCallback'] = route('webhooks.twilio.status');
+                    // }
+                    
+                    $appUrl = config('app.url');
                     if ($appUrl && !str_contains($appUrl, 'localhost') && !str_contains($appUrl, '127.0.0.1')) {
-                        //$messageParams['statusCallback'] = url('/twilio-webhook.php');
-                        $messageParams['statusCallback'] = route('webhooks.twilio.status');
+
+                        // Check if route exists before using it to prevent crash
+                        if (Route::has('webhooks.twilio.status')) {
+                            $messageParams['statusCallback'] = route('webhooks.twilio.status');
+                        }
+                        // Fallback to manual URL if route not found (e.g. caching issue)
+                        else {
+                            $messageParams['statusCallback'] = url('/webhooks/twilio/status');
+                            Log::warning('Twilio status route not found in cache, using manual URL fallback');
+                        }
                     }
 
                     $message = $this->twilio->messages->create(
