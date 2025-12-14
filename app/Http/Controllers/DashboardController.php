@@ -83,9 +83,16 @@ class DashboardController extends Controller
                     ->where('status', 'completed')->count(),
             ],
             'vendors' => [
-                'total' => Vendor::where('organization_id', $organizationId)->count(),
-                'active' => Vendor::where('organization_id', $organizationId)
-                    ->where('is_active', true)->count(),
+                // 'total' => Vendor::where('organization_id', $organizationId)->count(),
+                // 'active' => Vendor::where('organization_id', $organizationId)
+                //     ->where('is_active', true)->count(),
+                'total' => Vendor::whereHas('organizations', function ($q) use ($organizationId) {
+                    $q->where('organization_id', $organizationId);
+                })->count(),
+                'active' => Vendor::whereHas('organizations', function ($q) use ($organizationId) {
+                    $q->where('organization_id', $organizationId)
+                      ->where('organization_vendor.is_active', true);
+                })->count(),
             ],
         ];
 
