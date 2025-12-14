@@ -12,6 +12,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\CommunicationController;
 use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\VendorSetupController;
+use App\Http\Controllers\VendorRegistrationController;
 use Illuminate\Http\Request;
 
 use Illuminate\Support\Facades\Route;
@@ -38,12 +39,17 @@ Route::post('/webhooks/twilio/status', [WebhookController::class, 'twilioStatus'
         \Illuminate\Foundation\Http\Middleware\ValidatePostSize::class,
     ]);
 
-// Route::post('/webhooks/twilio/status', [WebhookController::class, 'twilioStatus'])
-//     ->name('webhooks.twilio.status')
-//     ->withoutMiddleware([
-//         \App\Http\Middleware\VerifyCsrfToken::class,
-//         \Illuminate\Foundation\Http\Middleware\ValidatePostSize::class,
-//     ]);
+// Vendor Self-Registration (public - no auth required)
+Route::prefix('vendor')->name('vendor.')->group(function () {
+    Route::get('/register', [VendorRegistrationController::class, 'showRegistrationForm'])
+        ->name('register');
+
+    Route::get('/register/pending', [VendorRegistrationController::class, 'pending'])
+        ->name('register.pending');
+
+    Route::get('/register/rejected', [VendorRegistrationController::class, 'rejected'])
+        ->name('register.rejected');
+});
 
 // Short URL redirect (public)
 Route::get('/s/{code}', [VendorSetupController::class, 'handleShortUrl'])
@@ -87,6 +93,11 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::post('/system/jobs/{jobId}/retry', [AdminController::class, 'retryJob'])->name('system.retry-job');
     Route::delete('/system/jobs/{jobId}', [AdminController::class, 'deleteJob'])->name('system.delete-job');
     Route::post('/system/jobs/flush', [AdminController::class, 'flushJobs'])->name('system.flush-jobs');
+
+    //pending vendor approvals
+    Route::get('/pending-vendors', function () {
+                                                    return view('admin.pending-vendors');
+                                                })->name('pending-vendors');
 });
 
 // =====================

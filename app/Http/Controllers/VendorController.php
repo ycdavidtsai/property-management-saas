@@ -144,7 +144,8 @@ class VendorController extends Controller
      */
     public function requests()
     {
-        return view('vendors.requests.index');
+        $this->authorize('viewAny', Vendor::class);
+        return view('vendors.index');
     }
 
     /**

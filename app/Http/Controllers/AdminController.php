@@ -359,12 +359,14 @@ class AdminController extends Controller
             'reviewed_at' => now(),
             'review_notes' => $validated['review_notes'] ?? null,
             'payment_completed_at' => now(),
+            'request_type' => 'admin_approved', //DT
         ]);
 
         $promotionRequest->vendor->update([
             'vendor_type' => 'global',
             'promoted_at' => now(),
             'promotion_fee_paid' => 0,
+            'setup_status' => 'active', //DT
         ]);
 
         return back()->with('success', 'Vendor promoted to global listing successfully.');

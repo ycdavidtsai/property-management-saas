@@ -11,6 +11,7 @@ class VendorPromotionRequest extends Model
 
     protected $fillable = [
         'vendor_id',
+        'request_type',  // NEW: 'promotion' or 'registration'
         'requested_by_user_id',
         'request_message',
         'requested_at',
@@ -79,10 +80,57 @@ class VendorPromotionRequest extends Model
     }
 
     /**
+     * Check if this is a registration request (self-registered vendor)
+     */
+    public function isRegistration(): bool
+    {
+        return $this->request_type === 'registration';
+    }
+
+    /**
+     * Check if this is a promotion request (existing vendor)
+     */
+    public function isPromotion(): bool
+    {
+        return $this->request_type === 'promotion' || is_null($this->request_type);
+    }
+
+    /**
+     * Get human-readable request type label
+     */
+    public function getRequestTypeLabelAttribute(): string
+    {
+        return match($this->request_type) {
+            'registration' => 'New Registration',
+            'promotion' => 'Global Promotion',
+            default => 'Promotion Request',
+        };
+    }
+
+    /**
      * Scope: Pending requests only
      */
     public function scopePending($query)
     {
         return $query->where('status', 'pending');
+    }
+
+    /**
+     * Scope: Registration requests only (self-registered vendors)
+     */
+    public function scopeRegistrations($query)
+    {
+        return $query->where('request_type', 'registration');
+    }
+
+    /**
+     * Scope: Promotion requests only (existing vendors)
+     */
+    public function scopePromotions($query)
+    {
+        return $query->where(function($q) {
+            $q->where('request_type', 'promotion')
+              ->orWhereNull('request_type');
+        });
     }
 }

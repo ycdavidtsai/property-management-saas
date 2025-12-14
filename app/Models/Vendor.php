@@ -42,6 +42,11 @@ class Vendor extends Model
         'rejection_reason',
         'rejected_by',
         'rejected_at',
+        // New: Self-registration Approval fields
+        'contact_name',
+        'approved_by',
+        'approved_at',
+        'registration_source',  // ADD THIS - it's missing!
     ];
 
     protected $casts = [
@@ -58,6 +63,7 @@ class Vendor extends Model
         'phone_verification_expires_at' => 'datetime',
         'phone_verified_at' => 'datetime',
         'rejected_at' => 'datetime',
+        'approved_at' => 'datetime',
     ];
 
     // ============================================
