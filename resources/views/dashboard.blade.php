@@ -7,6 +7,47 @@
 
     <div style="margin: 15px;">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+                        <!-- Recent Maintenance Requests -->
+            @if($recentMaintenanceRequests->count() > 0)
+                <div class="mb-8">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900">Recent Maintenance Requests</h3>
+                        <a href="{{ route('maintenance-requests.index') }}" class="text-sm font-medium text-blue-600 hover:text-blue-800">
+                            View all →
+                        </a>
+                    </div>
+                    <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                        <div class="divide-y divide-gray-200">
+                            @foreach($recentMaintenanceRequests as $request)
+                                <a href="{{ route('maintenance-requests.show', $request) }}" class="block hover:bg-gray-50 transition-colors">
+                                    <div class="p-4">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex-1">
+                                                <p class="text-sm font-medium text-gray-900">{{ $request->title }}</p>
+                                                <div class="mt-1 flex items-center space-x-3 text-xs text-gray-500">
+                                                    <span>{{ $request->property->name }}</span>
+                                                    @if($request->unit)
+                                                        <span>Unit {{ $request->unit->unit_number }}</span>
+                                                    @endif
+                                                    <span>{{ $request->created_at->diffForHumans() }}</span>
+                                                </div>
+                                            </div>
+                                            <span class="ml-4 px-2 py-1 text-xs font-semibold rounded-full
+                                                @if($request->status === 'completed') bg-green-100 text-green-800
+                                                @elseif($request->status === 'in_progress') bg-blue-100 text-blue-800
+                                                @elseif($request->status === 'assigned') bg-yellow-100 text-yellow-800
+                                                @else bg-gray-100 text-gray-800
+                                                @endif">
+                                                {{ ucfirst(str_replace('_', ' ', $request->status)) }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </a>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+            @endif
             <!-- Properties & Units -->
             <div class="mb-8">
                 <h3 class="text-lg font-semibold text-gray-900 mb-4">Properties & Units</h3>
@@ -265,49 +306,6 @@
                     </a>
                 </div>
             </div>
-
-            <!-- Recent Maintenance Requests -->
-            @if($recentMaintenanceRequests->count() > 0)
-                <div class="mb-8">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-semibold text-gray-900">Recent Maintenance Requests</h3>
-                        <a href="{{ route('maintenance-requests.index') }}" class="text-sm font-medium text-blue-600 hover:text-blue-800">
-                            View all →
-                        </a>
-                    </div>
-                    <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                        <div class="divide-y divide-gray-200">
-                            @foreach($recentMaintenanceRequests as $request)
-                                <a href="{{ route('maintenance-requests.show', $request) }}" class="block hover:bg-gray-50 transition-colors">
-                                    <div class="p-4">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex-1">
-                                                <p class="text-sm font-medium text-gray-900">{{ $request->title }}</p>
-                                                <div class="mt-1 flex items-center space-x-3 text-xs text-gray-500">
-                                                    <span>{{ $request->property->name }}</span>
-                                                    @if($request->unit)
-                                                        <span>Unit {{ $request->unit->unit_number }}</span>
-                                                    @endif
-                                                    <span>{{ $request->created_at->diffForHumans() }}</span>
-                                                </div>
-                                            </div>
-                                            <span class="ml-4 px-2 py-1 text-xs font-semibold rounded-full
-                                                @if($request->status === 'completed') bg-green-100 text-green-800
-                                                @elseif($request->status === 'in_progress') bg-blue-100 text-blue-800
-                                                @elseif($request->status === 'assigned') bg-yellow-100 text-yellow-800
-                                                @else bg-gray-100 text-gray-800
-                                                @endif">
-                                                {{ ucfirst(str_replace('_', ' ', $request->status)) }}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </a>
-                            @endforeach
-                        </div>
-                    </div>
-                </div>
-            @endif
-
         </div>
     </div>
 </div>
