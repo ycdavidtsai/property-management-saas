@@ -42,7 +42,7 @@
                     <option value="">All Statuses</option>
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
-                    <option value="trialing">Trial</option>
+                    <option value="trial">Trial</option>
                 </select>
 
                 {{-- Results count --}}
