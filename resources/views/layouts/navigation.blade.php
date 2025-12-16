@@ -59,7 +59,7 @@
             <div class="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
                 <div class="flex-shrink-0 flex items-center px-4">
                     <x-application-logo class="h-8 w-auto" />
-                    <span class="ml-2 text-xl font-semibold text-gray-900">Elandlord.click</span>
+                    <span class="ml-2 text-xl font-semibold text-gray-900">Elandlord</span>
                 </div>
                 <nav class="mt-5 px-2 space-y-1">
                     @include('layouts.navigation-items')
@@ -82,11 +82,11 @@
                 <div class="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
                     <div class="flex items-center flex-shrink-0 px-4">
                         <x-application-logo class="h-8 w-auto" />
-                        <span class="ml-2 text-xl font-semibold text-gray-900">Elandlord.click</span>
+                        <span class="ml-2 text-xl font-semibold text-gray-900">Elandlord</span>
                     </div>
 
-                    {{-- Organization info --}}
-                    @if(auth()->user()->role !== 'tenant' && auth()->user()->organization)
+                    {{-- Organization info for landlord/manager/admin --}}
+                    @if(!in_array(auth()->user()->role, ['tenant', 'vendor']) && auth()->user()->organization)
                         <div class="mt-4 px-4">
                             <div class="bg-gray-50 rounded-lg p-3">
                                 <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Organization</div>
@@ -100,84 +100,46 @@
                         </div>
                     @endif
 
-                    {{-- Organization info for Vendor--}}
-                    @if(auth()->user()->role === 'vendor')
+                    {{-- Organization info for Vendor --}}
+                    @if(auth()->user()->role === 'vendor' && auth()->user()->vendor)
                         <div class="mt-4 px-4">
                             <div class="bg-gray-50 rounded-lg p-3">
-                                <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Organization</div>
-                                <div class="mt-1 text-sm font-medium text-gray-900">{{ auth()->user()->vendor->name }} - Vendor Portal</div>
+                                <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Vendor Portal</div>
+                                <div class="mt-1 text-sm font-medium text-gray-900">{{ auth()->user()->vendor->name }}</div>
                                 <div class="mt-1">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                        {{ App\Services\RoleService::getRoleDisplayName(auth()->user()->role) }}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        {{ ucfirst(auth()->user()->vendor->setup_status ?? 'Active') }}
                                     </span>
                                 </div>
                             </div>
                         </div>
                     @endif
 
-                    {{-- Tenant Property info , added by DT--}}
-                    {{-- @if(auth()->user()->role === 'tenant')
-                        <div class="mt-4 px-4">
-                            <div class="bg-gray-50 rounded-lg p-3">
-                                <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Property Address:</div>
-                                <div class="mt-1 text-sm font-medium text-gray-900">{{ auth()->user()->activeLease()->unit->property->address }}</div>
-                                <div class="mt-1">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                        {{ App\Services\RoleService::getRoleDisplayName(auth()->user()->role) }}
-                                    </span>
+                    {{-- Tenant Property info --}}
+                    @if(auth()->user()->role === 'tenant')
+                        @php
+                            $activeLease = auth()->user()->activeLease();
+                        @endphp
+                        @if($activeLease && $activeLease->unit && $activeLease->unit->property)
+                            <div class="mt-4 px-4">
+                                <div class="bg-gray-50 rounded-lg p-3">
+                                    <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Property Address:</div>
+                                    <div class="mt-1 text-sm font-medium text-gray-900">{{ $activeLease->unit->property->address }}</div>
+                                    <div class="mt-1">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            {{ App\Services\RoleService::getRoleDisplayName(auth()->user()->role) }}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    @endif --}}
-                    @if(auth()->user()->role === 'tenant')
-    @php
-        $activeLease = auth()->user()->activeLease();
-    @endphp
-    @if($activeLease && $activeLease->unit && $activeLease->unit->property)
-        <div class="mt-4 px-4">
-            <div class="bg-gray-50 rounded-lg p-3">
-                <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Property Address:</div>
-                <div class="mt-1 text-sm font-medium text-gray-900">{{ $activeLease->unit->property->address }}</div>
-                <div class="mt-1">
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        {{ App\Services\RoleService::getRoleDisplayName(auth()->user()->role) }}
-                    </span>
-                </div>
-            </div>
-        </div>
-    @else
-        <div class="mt-4 px-4">
-            <div class="bg-yellow-50 rounded-lg p-3">
-                <div class="text-xs font-medium text-yellow-600">No active lease</div>
-            </div>
-        </div>
-    @endif
-@endif
-
-{{-- vendor portal , added by DT, repeated, add this to navigation-items --}}
-{{-- @if(auth()->user()->role === 'vendor')
-    <x-nav-link :href="route('vendor.dashboard')" :active="request()->routeIs('vendor.dashboard')">
-        {{ __('Dashboard') }}
-    </x-nav-link>
-    <x-nav-link :href="route('vendor.profile')" :active="request()->routeIs('vendor.profile')">
-        {{ __('My Profile') }}
-    </x-nav-link>
-@endif --}}
-
-{{-- Add Navigation for Admin --}}
-@if(auth()->user()->role === 'admin')
-    <x-nav-link :href="route('admin.promotion-requests')" :active="request()->routeIs('admin.promotion-requests')">
-        {{ __('Vendor Promotions') }}
-        @php
-            $pendingCount = \App\Models\VendorPromotionRequest::where('status', 'pending')->count();
-        @endphp
-        @if($pendingCount > 0)
-            <span class="ml-2 px-2 py-0.5 text-xs font-bold rounded-full bg-red-500 text-white">
-                {{ $pendingCount }}
-            </span>
-        @endif
-    </x-nav-link>
-@endif
+                        @else
+                            <div class="mt-4 px-4">
+                                <div class="bg-yellow-50 rounded-lg p-3">
+                                    <div class="text-xs font-medium text-yellow-600">No active lease</div>
+                                </div>
+                            </div>
+                        @endif
+                    @endif
 
                     {{-- Navigation items --}}
                     <nav class="mt-5 flex-1 px-2 space-y-1">
@@ -201,7 +163,7 @@
             <div class="flex items-center flex-shrink-0 px-4">
 
                 <x-application-logo class="h-8 w-auto" />
-                <span class="ml-2 text-xl font-semibold text-gray-900">Elandlord.click</span>
+                <span class="ml-2 text-xl font-semibold text-gray-900">Elandlord</span>
                 <button @click="sidebarOpen = true"
                         class="-ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
                     <span class="sr-only">Open sidebar</span>

@@ -47,6 +47,9 @@ class Vendor extends Model
         'approved_by',
         'approved_at',
         'registration_source',  // ADD THIS - it's missing!
+        'availability_schedule',
+        'service_areas',
+        'portfolio_photos',
     ];
 
     protected $casts = [
@@ -64,6 +67,9 @@ class Vendor extends Model
         'phone_verified_at' => 'datetime',
         'rejected_at' => 'datetime',
         'approved_at' => 'datetime',
+        'availability_schedule' => 'array',
+        'service_areas' => 'array',
+        'portfolio_photos' => 'array',
     ];
 
     // ============================================
@@ -356,5 +362,275 @@ class Vendor extends Model
             'email' => $user->email,
             'phone' => $user->phone,
         ]);
+    }
+
+    // =============================================
+    // 3. ADD THESE NEW RELATIONSHIPS
+    // =============================================
+
+    /**
+     * Invoices issued by this vendor
+     */
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(VendorInvoice::class);
+    }
+
+    /**
+     * Pending (unpaid) invoices
+     */
+    public function pendingInvoices(): HasMany
+    {
+        return $this->hasMany(VendorInvoice::class)->where('status', 'pending');
+    }
+
+
+    // =============================================
+    // 4. ADD THESE NEW ACCESSORS
+    // =============================================
+
+    /**
+     * Get formatted availability for display
+     * Returns human-readable schedule like "Mon-Fri 8am-5pm"
+     */
+    public function getAvailabilitySummaryAttribute(): string
+    {
+        if (!$this->availability_schedule || !isset($this->availability_schedule['weekly'])) {
+            return 'Not set';
+        }
+
+        $weekly = $this->availability_schedule['weekly'];
+        $availableDays = [];
+
+        foreach ($weekly as $day => $schedule) {
+            if ($schedule['available'] ?? false) {
+                $availableDays[$day] = $schedule;
+            }
+        }
+
+        if (empty($availableDays)) {
+            return 'Not available';
+        }
+
+        // Check if all weekdays have same hours
+        $weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+        $weekend = ['saturday', 'sunday'];
+
+        $weekdaySchedules = array_intersect_key($availableDays, array_flip($weekdays));
+        $weekendSchedules = array_intersect_key($availableDays, array_flip($weekend));
+
+        $summary = [];
+
+        // Check if weekdays are consistent
+        if (count($weekdaySchedules) === 5) {
+            $times = array_unique(array_map(fn($s) => $s['start'] . '-' . $s['end'], $weekdaySchedules));
+            if (count($times) === 1) {
+                $first = reset($weekdaySchedules);
+                $summary[] = 'Mon-Fri ' . $this->formatTimeRange($first['start'], $first['end']);
+            }
+        } elseif (count($weekdaySchedules) > 0) {
+            // List individual days
+            foreach ($weekdaySchedules as $day => $schedule) {
+                $summary[] = ucfirst(substr($day, 0, 3)) . ' ' . $this->formatTimeRange($schedule['start'], $schedule['end']);
+            }
+        }
+
+        // Add weekend if available
+        foreach ($weekendSchedules as $day => $schedule) {
+            $summary[] = ucfirst(substr($day, 0, 3)) . ' ' . $this->formatTimeRange($schedule['start'], $schedule['end']);
+        }
+
+        return implode(', ', $summary) ?: 'Not available';
+    }
+
+    /**
+     * Format time range for display
+     */
+    protected function formatTimeRange(string $start, string $end): string
+    {
+        $startFormatted = date('ga', strtotime($start));
+        $endFormatted = date('ga', strtotime($end));
+        return $startFormatted . '-' . $endFormatted;
+    }
+
+    /**
+     * Get service areas as comma-separated string
+     */
+    public function getServiceAreasSummaryAttribute(): string
+    {
+        if (!$this->service_areas || empty($this->service_areas['areas'])) {
+            return 'Not set';
+        }
+
+        $areas = $this->service_areas['areas'];
+
+        if (count($areas) <= 3) {
+            return implode(', ', $areas);
+        }
+
+        return implode(', ', array_slice($areas, 0, 3)) . ' +' . (count($areas) - 3) . ' more';
+    }
+
+    /**
+     * Get count of portfolio photos
+     */
+    public function getPortfolioCountAttribute(): int
+    {
+        return is_array($this->portfolio_photos) ? count($this->portfolio_photos) : 0;
+    }
+
+    /**
+     * Get total earnings for current month
+     */
+    public function getCurrentMonthEarningsAttribute(): float
+    {
+        return $this->invoices()
+            ->where('status', 'paid')
+            ->whereMonth('paid_at', now()->month)
+            ->whereYear('paid_at', now()->year)
+            ->sum('amount');
+    }
+
+    /**
+     * Get total pending invoice amount
+     */
+    public function getPendingInvoiceAmountAttribute(): float
+    {
+        return $this->invoices()
+            ->whereIn('status', ['pending', 'overdue'])
+            ->sum('amount');
+    }
+
+
+    // =============================================
+    // 5. ADD THESE NEW HELPER METHODS
+    // =============================================
+
+    /**
+     * Check if vendor is available on a specific date and time
+     */
+    public function isAvailableAt(\DateTime $dateTime): bool
+    {
+        if (!$this->availability_schedule) {
+            return true; // No schedule set = assume available
+        }
+
+        $dayOfWeek = strtolower($dateTime->format('l')); // monday, tuesday, etc.
+        $time = $dateTime->format('H:i');
+        $dateString = $dateTime->format('Y-m-d');
+
+        // Check exceptions first
+        $exceptions = $this->availability_schedule['exceptions'] ?? [];
+        foreach ($exceptions as $exception) {
+            if ($exception['date'] === $dateString && !($exception['available'] ?? false)) {
+                return false;
+            }
+        }
+
+        // Check weekly schedule
+        $weekly = $this->availability_schedule['weekly'] ?? [];
+        if (!isset($weekly[$dayOfWeek]) || !($weekly[$dayOfWeek]['available'] ?? false)) {
+            return false;
+        }
+
+        $daySchedule = $weekly[$dayOfWeek];
+        $start = $daySchedule['start'] ?? '00:00';
+        $end = $daySchedule['end'] ?? '23:59';
+
+        return $time >= $start && $time <= $end;
+    }
+
+    /**
+     * Check if vendor serves a specific zip code or city
+     */
+    public function servesArea(string $area): bool
+    {
+        if (!$this->service_areas || empty($this->service_areas['areas'])) {
+            return true; // No areas set = serves everywhere
+        }
+
+        $areas = array_map('strtolower', $this->service_areas['areas']);
+        $areaLower = strtolower(trim($area));
+
+        // For zip codes, also check if first 5 digits match
+        if ($this->service_areas['type'] === 'zip_codes') {
+            $areaZip = substr(preg_replace('/[^0-9]/', '', $area), 0, 5);
+            foreach ($areas as $serviceArea) {
+                if (substr($serviceArea, 0, 5) === $areaZip) {
+                    return true;
+                }
+            }
+        }
+
+        return in_array($areaLower, $areas);
+    }
+
+    /**
+     * Get available time slots for a specific date
+     */
+    public function getAvailableSlotsForDate(\DateTime $date, int $slotDurationMinutes = 60): array
+    {
+        $dayOfWeek = strtolower($date->format('l'));
+        $dateString = $date->format('Y-m-d');
+
+        // Check if this is an exception day
+        $exceptions = $this->availability_schedule['exceptions'] ?? [];
+        foreach ($exceptions as $exception) {
+            if ($exception['date'] === $dateString && !($exception['available'] ?? false)) {
+                return []; // Day off
+            }
+        }
+
+        // Get weekly schedule for this day
+        $weekly = $this->availability_schedule['weekly'] ?? [];
+        if (!isset($weekly[$dayOfWeek]) || !($weekly[$dayOfWeek]['available'] ?? false)) {
+            return [];
+        }
+
+        $daySchedule = $weekly[$dayOfWeek];
+        $start = $daySchedule['start'] ?? '08:00';
+        $end = $daySchedule['end'] ?? '17:00';
+
+        // Generate slots
+        $slots = [];
+        $current = strtotime($dateString . ' ' . $start);
+        $endTime = strtotime($dateString . ' ' . $end);
+
+        while ($current + ($slotDurationMinutes * 60) <= $endTime) {
+            $slotStart = date('H:i', $current);
+            $slotEnd = date('H:i', $current + ($slotDurationMinutes * 60));
+
+            $slots[] = [
+                'start' => $slotStart,
+                'end' => $slotEnd,
+                'display' => date('g:i A', $current) . ' - ' . date('g:i A', $current + ($slotDurationMinutes * 60)),
+            ];
+
+            $current += $slotDurationMinutes * 60;
+        }
+
+        return $slots;
+    }
+
+
+    // =============================================
+    // 6. ADD THIS SCOPE
+    // =============================================
+
+    /**
+     * Scope: Vendors that serve a specific area
+     */
+    public function scopeServingArea($query, string $area)
+    {
+        return $query->where(function($q) use ($area) {
+            // Include vendors with no service areas set (they serve everywhere)
+            $q->whereNull('service_areas')
+            ->orWhereJsonLength('service_areas->areas', 0);
+
+            // Or vendors whose service areas include this area
+            // Note: This is a simplified check - for production, consider
+            // a more robust JSON search based on your database
+            $q->orWhereJsonContains('service_areas->areas', $area);
+        });
     }
 }

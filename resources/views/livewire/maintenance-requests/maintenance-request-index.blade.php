@@ -54,10 +54,17 @@
                             <div class="flex-1">
                                 <div class="flex items-center space-x-2 mb-2">
                                     <h3 class="text-lg font-medium text-gray-900">
-                                        <a href="{{ route('maintenance-requests.show', $request) }}"
-                                           class="hover:text-blue-600">
-                                            {{ $request->title }}
-                                        </a>
+                                        @if(auth()->user()->isVendor())
+                                            <a href="{{ route('vendor.requests.show', $request) }}"
+                                            class="hover:text-blue-600">
+                                                {{ $request->title }}
+                                            </a>
+                                        @else
+                                            <a href="{{ route('maintenance-requests.show', $request) }}"
+                                            class="hover:text-blue-600">
+                                                {{ $request->title }}
+                                            </a>
+                                        @endif
                                     </h3>
                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-{{ $request->priority_color }}-100 text-{{ $request->priority_color }}-800">
                                         {{ ucfirst($request->priority) }}

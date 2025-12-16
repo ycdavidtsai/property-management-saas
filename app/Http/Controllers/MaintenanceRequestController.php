@@ -23,6 +23,7 @@ class MaintenanceRequestController extends Controller
     {
         $user = Auth::user();
         $roleService = app(RoleService::class);
+        $vendor = Auth::user()->vendor;
 
         // Different views based on role
         if ($roleService->isTenant($user)) {
@@ -31,13 +32,22 @@ class MaintenanceRequestController extends Controller
                 ->latest()
                 ->get();
         } elseif ($roleService->isVendor($user)) {
-            abort(403, 'Unauthorized access.'); //DT added to prevent vendor from accessing this route
+            // Debug output
+            // \Log::info('Vendor query debug', [
+            //     'user_id' => $user->id,
+            //     'vendor' => $vendor?->toArray(),
+            //     'vendor_id' => $vendor?->id,
+            // ]);
+
+            $requests = MaintenanceRequest::where('assigned_vendor_id', $vendor->id)
+                ->latest()
+                ->get();
+
         } else {
             $requests = MaintenanceRequest::where('organization_id', $user->organization_id)
                 ->latest()
                 ->get();
         }
-
         return view('maintenance-requests.index', compact('requests'));
     }
 

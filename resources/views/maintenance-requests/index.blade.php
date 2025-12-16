@@ -10,7 +10,16 @@
             </a>
         </div>
     </x-slot> --}}
-
+{{-- DEBUG - Remove after testing --}}
+{{-- <div class="bg-yellow-100 p-4 mb-4">
+    <p>Total requests passed: {{ $requests->count() }}</p>
+    <p>User role: {{ auth()->user()->role }}</p>
+    <p>User org: {{ auth()->user()->organization_id ?? 'null' }}</p>
+    @foreach($requests as $r)
+        <p>Request ID: {{ $r->id }} | Org: {{ $r->organization_id }}</p>
+    @endforeach
+</div> --}}
+{{-- END DEBUG --}}
     {{-- <div class="py-12"> --}}
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <livewire:maintenance-requests.maintenance-request-index />

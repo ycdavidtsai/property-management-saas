@@ -23,12 +23,30 @@ class MaintenanceRequestIndex extends Component
         $user = Auth::user();
         $roleService = app(RoleService::class);
 
-        $query = MaintenanceRequest::where('organization_id', $user->organization_id)
-            ->with(['property', 'unit', 'tenant', 'assignedVendor']);
+        // $query = MaintenanceRequest::where('organization_id', $user->organization_id)
+        //     ->with(['property', 'unit', 'tenant', 'assignedVendor']);
 
-        // Role-based filtering
+        // // Role-based filtering
+        // if ($roleService->isTenant($user)) {
+        //     $query->where('tenant_id', $user->id);
+        // }
+
+        // revise to use single query variable with conditional clauses, for differenrt roles
+
+        $query = MaintenanceRequest::query();
+
         if ($roleService->isTenant($user)) {
-            $query->where('tenant_id', $user->id);
+            $query->where('organization_id', $user->organization_id)
+                ->where('tenant_id', $user->id);
+        } elseif ($roleService->isVendor($user)) {
+            $vendor = $user->vendor;
+            if ($vendor) {
+                $query->where('assigned_vendor_id', $vendor->id);
+            } else {
+                $query->whereRaw('1 = 0'); // Return nothing if no vendor
+            }
+        } else {
+            $query->where('organization_id', $user->organization_id);
         }
 
         // Search

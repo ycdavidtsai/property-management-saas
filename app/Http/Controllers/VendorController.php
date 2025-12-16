@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\MaintenanceRequest;
 use App\Models\VendorPromotionRequest;
+use App\Models\VendorInvoice;
 
 
 class VendorController extends Controller
@@ -140,7 +141,7 @@ class VendorController extends Controller
     }
 
     /**
-     * Display list of assigned maintenance requests
+     * Display list of all vendors
      */
     public function requests()
     {
@@ -283,5 +284,69 @@ class VendorController extends Controller
         $vendor->organizations()->detach($user->organization_id);
 
         return back()->with('success', "{$vendor->name} has been removed from your vendors.");
+    }
+
+    // Vendor Additional Methods, phase 4
+    /**
+     * Show vendor calendar view
+     */
+    public function calendar()
+    {
+        return view('vendors.calendar');
+    }
+
+    /**
+     * Show vendor earnings summary
+     */
+    public function earnings()
+    {
+        return view('vendors.earnings');
+    }
+
+    /**
+     * Show vendor invoices list
+     */
+    public function invoices()
+    {
+        return view('vendors.invoices.index');
+    }
+
+    /**
+     * Show single invoice detail
+     */
+    public function showInvoice(VendorInvoice $invoice)
+    {
+        // Verify vendor owns this invoice
+        $vendor = Vendor::where('user_id', Auth::id())->firstOrFail();
+
+        if ($invoice->vendor_id !== $vendor->id) {
+            abort(403, 'Unauthorized');
+        }
+
+        return view('vendors.invoices.show', compact('invoice'));
+    }
+
+    /**
+     * Show vendor portfolio page
+     */
+    public function portfolio()
+    {
+        return view('vendors.portfolio');
+    }
+
+    /**
+     * Show availability settings page
+     */
+    public function availability()
+    {
+        return view('vendors.settings.availability');
+    }
+
+    /**
+     * Show service areas settings page
+     */
+    public function serviceAreas()
+    {
+        return view('vendors.settings.service-areas');
     }
 }

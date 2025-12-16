@@ -214,12 +214,30 @@ Route::middleware(['auth', 'verified'])->group(function () {
 // =====================
 Route::prefix('vendor')->name('vendor.')->middleware(['auth', 'verified', 'role:vendor'])->group(function () {
     Route::get('/dashboard', [VendorController::class, 'dashboard'])->name('dashboard');
-    Route::get('/requests', [VendorController::class, 'requests'])->name('requests.index');
+    //Route::get('/requests', [VendorController::class, 'requests'])->name('requests.index');
+    Route::get('/requests', [MaintenanceRequestController::class, 'index'])->name('requests.index');
     Route::get('/requests/{maintenanceRequest}', [VendorController::class, 'vendorShow'])->name('requests.show');
 
     // Vendor Profile & Promotion
     Route::get('/profile', [VendorController::class, 'profile'])->name('profile');
     Route::post('/request-promotion', [VendorController::class, 'requestPromotion'])->name('request-promotion');
+
+    // Calendar view
+    Route::get('/calendar', [VendorController::class, 'calendar'])->name('calendar');
+
+    // Earnings & Invoices
+    Route::get('/earnings', [VendorController::class, 'earnings'])->name('earnings');
+    Route::get('/invoices', [VendorController::class, 'invoices'])->name('invoices.index');
+    Route::get('/invoices/{invoice}', [VendorController::class, 'showInvoice'])->name('invoices.show');
+
+    // Portfolio
+    Route::get('/portfolio', [VendorController::class, 'portfolio'])->name('portfolio');
+
+    // Settings
+    Route::prefix('settings')->name('settings.')->group(function () {
+        Route::get('/availability', [VendorController::class, 'availability'])->name('availability');
+        Route::get('/service-areas', [VendorController::class, 'serviceAreas'])->name('service-areas');
+    });
 });
 
 // =====================
