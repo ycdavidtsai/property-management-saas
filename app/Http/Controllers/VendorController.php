@@ -288,11 +288,26 @@ class VendorController extends Controller
 
     // Vendor Additional Methods, phase 4
     /**
-     * Show vendor calendar view
+     * Display the vendor calendar view
      */
     public function calendar()
     {
-        return view('vendors.calendar');
+        $vendor = Vendor::where('user_id', Auth::id())->first();
+
+        if (!$vendor) {
+            return redirect()->route('vendor.dashboard')
+                ->with('error', 'Vendor profile not found.');
+        }
+
+        // Only active vendors can access calendar
+        if ($vendor->setup_status !== 'active') {
+            return redirect()->route('vendor.dashboard')
+                ->with('error', 'Your account must be active to access the calendar.');
+        }
+
+        return view('vendors.calendar', [
+            'vendor' => $vendor
+        ]);
     }
 
     /**

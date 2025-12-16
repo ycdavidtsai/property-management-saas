@@ -36,14 +36,15 @@
     My Jobs
 </a>
 
-{{-- Calendar (Coming Soon) --}}
-<span class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-400 cursor-not-allowed">
-    <svg class="mr-3 flex-shrink-0 h-6 w-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+{{-- Calendar --}}
+<a href="{{ route('vendor.calendar') }}"
+   class="group flex items-center px-2 py-2 text-sm font-medium rounded-md {{ request()->routeIs('vendor.calendar') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }}">
+    <svg class="mr-3 flex-shrink-0 h-6 w-6 {{ request()->routeIs('vendor.calendar.*') ? 'text-indigo-500' : 'text-gray-400 group-hover:text-gray-500' }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
     </svg>
     Calendar
-    <span class="ml-auto text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Soon</span>
-</span>
+</a>
+
 
 {{-- Earnings (Coming Soon) --}}
 <span class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-400 cursor-not-allowed">
