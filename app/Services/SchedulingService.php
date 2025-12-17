@@ -10,7 +10,7 @@ class SchedulingService
 {
     /**
      * Get available time slots for a vendor on a specific date
-     * Takes into account: weekly availability, exceptions, and existing bookings
+     * Takes into account: weekly availability, exceptions, blocked slots, and existing bookings
      */
     public function getAvailableSlots(
         Vendor $vendor,
@@ -43,8 +43,11 @@ class SchedulingService
         // Get existing bookings for this date
         $existingBookings = $this->getExistingBookings($vendor, $date, $excludeRequestId);
 
-        // Filter out conflicting slots
+        // Filter out conflicting slots (existing appointments)
         $availableSlots = $this->filterConflictingSlots($baseSlots, $existingBookings);
+
+        // Filter out blocked time slots
+        $availableSlots = $this->filterBlockedSlots($availableSlots, $vendor, $date);
 
         // If today, filter out past time slots
         if ($dateObj->isToday()) {
@@ -211,6 +214,37 @@ class SchedulingService
     }
 
     /**
+     * Filter out blocked time slots from vendor's availability
+     */
+    protected function filterBlockedSlots(array $slots, Vendor $vendor, string $date): array
+    {
+        $schedule = $vendor->availability_schedule ?? [];
+        $blockedSlots = $schedule['blocked_slots'] ?? [];
+
+        // Filter to only this date's blocks
+        $todayBlocks = array_filter($blockedSlots, fn($block) => ($block['date'] ?? '') === $date);
+
+        if (empty($todayBlocks)) {
+            return $slots;
+        }
+
+        return array_values(array_filter($slots, function ($slot) use ($todayBlocks) {
+            foreach ($todayBlocks as $block) {
+                $blockStart = $block['start'] ?? null;
+                $blockEnd = $block['end'] ?? null;
+
+                if ($blockStart && $blockEnd && $this->timesOverlap(
+                    $slot['start'], $slot['end'],
+                    $blockStart, $blockEnd
+                )) {
+                    return false; // Slot overlaps with a blocked time
+                }
+            }
+            return true;
+        }));
+    }
+
+    /**
      * Check if two time ranges overlap
      */
     protected function timesOverlap(
@@ -305,14 +339,14 @@ class SchedulingService
             return ['success' => false, 'message' => 'Cannot schedule a time that has already passed.'];
         }
 
-        // Check for conflicts
+        // Check for conflicts (existing appointments AND blocked slots)
         $slots = $this->getAvailableSlots($vendor, $date, 60, $request->id);
 
         if (!$slots['available']) {
             return ['success' => false, 'message' => $slots['reason'] ?? 'Vendor not available on this date.'];
         }
 
-        // Check if the specific slot conflicts
+        // Check if the specific slot conflicts with bookings
         $hasConflict = false;
         foreach ($slots['booked_slots'] as $booking) {
             if ($this->timesOverlap($startTime, $endTime, $booking['start'], $booking['end'])) {
@@ -323,6 +357,17 @@ class SchedulingService
 
         if ($hasConflict) {
             return ['success' => false, 'message' => 'This time slot conflicts with another appointment.'];
+        }
+
+        // Also check against blocked slots
+        $schedule = $vendor->availability_schedule ?? [];
+        $blockedSlots = $schedule['blocked_slots'] ?? [];
+        $todayBlocks = array_filter($blockedSlots, fn($block) => ($block['date'] ?? '') === $date);
+
+        foreach ($todayBlocks as $block) {
+            if ($this->timesOverlap($startTime, $endTime, $block['start'] ?? '', $block['end'] ?? '')) {
+                return ['success' => false, 'message' => 'This time slot is blocked by the vendor.'];
+            }
         }
 
         // Determine scheduling status based on who scheduled
@@ -443,6 +488,39 @@ class SchedulingService
 
         foreach ($weekly as $day => $config) {
             if ($config['available'] ?? false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Get vendor's blocked slots for a date range
+     */
+    public function getBlockedSlotsForRange(Vendor $vendor, string $startDate, string $endDate): array
+    {
+        $schedule = $vendor->availability_schedule ?? [];
+        $blockedSlots = $schedule['blocked_slots'] ?? [];
+
+        return array_filter($blockedSlots, function ($block) use ($startDate, $endDate) {
+            $blockDate = $block['date'] ?? '';
+            return $blockDate >= $startDate && $blockDate <= $endDate;
+        });
+    }
+
+    /**
+     * Check if a specific time slot is blocked
+     */
+    public function isSlotBlocked(Vendor $vendor, string $date, string $startTime, string $endTime): bool
+    {
+        $schedule = $vendor->availability_schedule ?? [];
+        $blockedSlots = $schedule['blocked_slots'] ?? [];
+
+        $todayBlocks = array_filter($blockedSlots, fn($block) => ($block['date'] ?? '') === $date);
+
+        foreach ($todayBlocks as $block) {
+            if ($this->timesOverlap($startTime, $endTime, $block['start'] ?? '', $block['end'] ?? '')) {
                 return true;
             }
         }

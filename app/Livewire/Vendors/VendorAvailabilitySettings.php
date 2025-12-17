@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Vendors;
 
+use App\Models\MaintenanceRequest;
 use App\Models\Vendor;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -9,58 +10,53 @@ use Livewire\Component;
 
 class VendorAvailabilitySettings extends Component
 {
-    // Individual day properties - avoids nested array reactivity issues in Livewire 3
-    public bool $mondayAvailable = true;
+    // Individual day properties for Livewire 3 reactivity
+    public bool $mondayAvailable = false;
     public string $mondayStart = '08:00';
     public string $mondayEnd = '17:00';
 
-    public bool $tuesdayAvailable = true;
+    public bool $tuesdayAvailable = false;
     public string $tuesdayStart = '08:00';
     public string $tuesdayEnd = '17:00';
 
-    public bool $wednesdayAvailable = true;
+    public bool $wednesdayAvailable = false;
     public string $wednesdayStart = '08:00';
     public string $wednesdayEnd = '17:00';
 
-    public bool $thursdayAvailable = true;
+    public bool $thursdayAvailable = false;
     public string $thursdayStart = '08:00';
     public string $thursdayEnd = '17:00';
 
-    public bool $fridayAvailable = true;
+    public bool $fridayAvailable = false;
     public string $fridayStart = '08:00';
     public string $fridayEnd = '17:00';
 
     public bool $saturdayAvailable = false;
-    public string $saturdayStart = '08:00';
-    public string $saturdayEnd = '17:00';
+    public string $saturdayStart = '09:00';
+    public string $saturdayEnd = '14:00';
 
     public bool $sundayAvailable = false;
-    public string $sundayStart = '08:00';
-    public string $sundayEnd = '17:00';
+    public string $sundayStart = '09:00';
+    public string $sundayEnd = '14:00';
 
-    // Exceptions (days off, holidays)
+    // Exceptions (days off)
     public array $exceptions = [];
-
-    // New exception form
     public string $newExceptionDate = '';
     public string $newExceptionReason = '';
 
-    // UI state
-    public bool $hasChanges = false;
+    // Blocked time slots
+    public array $blockedSlots = [];
+    public string $newBlockDate = '';
+    public string $newBlockStart = '';
+    public string $newBlockEnd = '';
+    public string $newBlockReason = '';
+    public bool $showBlockSlotModal = false;
 
-    // Days config for iteration in blade
-    public array $daysConfig = [
-        'monday' => 'Monday',
-        'tuesday' => 'Tuesday',
-        'wednesday' => 'Wednesday',
-        'thursday' => 'Thursday',
-        'friday' => 'Friday',
-        'saturday' => 'Saturday',
-        'sunday' => 'Sunday',
-    ];
-
-    // Time options
+    // UI State
     public array $timeOptions = [];
+    public bool $hasUnsavedChanges = false;
+
+    protected $listeners = ['refreshAvailability' => '$refresh'];
 
     public function mount()
     {
@@ -68,9 +64,13 @@ class VendorAvailabilitySettings extends Component
         $this->loadAvailability();
     }
 
+    /**
+     * Generate time options from 6am to 10pm in 30-min increments
+     */
     protected function generateTimeOptions(): void
     {
         $this->timeOptions = [];
+
         for ($hour = 6; $hour <= 22; $hour++) {
             foreach (['00', '30'] as $minute) {
                 $time = sprintf('%02d:%s', $hour, $minute);
@@ -80,191 +80,357 @@ class VendorAvailabilitySettings extends Component
         }
     }
 
-    protected function loadAvailability(): void
-    {
-        $vendor = $this->getVendor();
-
-        if (!$vendor || !$vendor->availability_schedule) {
-            return;
-        }
-
-        $schedule = $vendor->availability_schedule;
-
-        if (is_string($schedule)) {
-            $schedule = json_decode($schedule, true);
-        }
-
-        if (!isset($schedule['weekly'])) {
-            return;
-        }
-
-        $weekly = $schedule['weekly'];
-
-        // Load each day
-        foreach ($this->daysConfig as $day => $label) {
-            if (isset($weekly[$day])) {
-                $this->{$day . 'Available'} = (bool) ($weekly[$day]['available'] ?? false);
-                $this->{$day . 'Start'} = $weekly[$day]['start'] ?? '08:00';
-                $this->{$day . 'End'} = $weekly[$day]['end'] ?? '17:00';
-            }
-        }
-
-        $this->exceptions = $schedule['exceptions'] ?? [];
-    }
-
+    /**
+     * Get current vendor
+     */
     protected function getVendor(): ?Vendor
     {
         return Vendor::where('user_id', Auth::id())->first();
     }
 
-    public function updated($property)
-    {
-        $this->hasChanges = true;
-    }
-
     /**
-     * Toggle day availability - called from blade
+     * Load vendor's current availability from database
      */
-    public function toggleDay(string $day): void
+    protected function loadAvailability(): void
     {
-        $prop = $day . 'Available';
+        $vendor = $this->getVendor();
 
-        if (property_exists($this, $prop)) {
-            $this->$prop = !$this->$prop;
-            $this->hasChanges = true;
+        if (!$vendor) {
+            Log::warning('VendorAvailability: No vendor found', ['user_id' => Auth::id()]);
+            $this->initializeDefaults();
+            return;
+        }
+
+        $schedule = $vendor->availability_schedule;
+
+        // Handle JSON string vs array
+        if (is_string($schedule)) {
+            $schedule = json_decode($schedule, true);
+        }
+
+        if ($schedule && isset($schedule['weekly'])) {
+            $this->loadWeeklyFromSchedule($schedule['weekly']);
+            $this->exceptions = $schedule['exceptions'] ?? [];
+            $this->blockedSlots = $schedule['blocked_slots'] ?? [];
+        } else {
+            $this->initializeDefaults();
         }
     }
 
+    /**
+     * Load weekly schedule into individual properties
+     */
+    protected function loadWeeklyFromSchedule(array $weekly): void
+    {
+        $days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+        foreach ($days as $day) {
+            $availProp = "{$day}Available";
+            $startProp = "{$day}Start";
+            $endProp = "{$day}End";
+
+            if (isset($weekly[$day])) {
+                $this->$availProp = (bool) ($weekly[$day]['available'] ?? false);
+                $this->$startProp = $weekly[$day]['start'] ?? '08:00';
+                $this->$endProp = $weekly[$day]['end'] ?? '17:00';
+            }
+        }
+    }
+
+    /**
+     * Initialize with sensible defaults
+     */
+    protected function initializeDefaults(): void
+    {
+        // Weekdays available by default
+        $this->mondayAvailable = true;
+        $this->tuesdayAvailable = true;
+        $this->wednesdayAvailable = true;
+        $this->thursdayAvailable = true;
+        $this->fridayAvailable = true;
+        $this->saturdayAvailable = false;
+        $this->sundayAvailable = false;
+
+        $this->exceptions = [];
+        $this->blockedSlots = [];
+    }
+
+    /**
+     * Build schedule array from individual properties
+     */
+    protected function getScheduleArray(): array
+    {
+        return [
+            'weekly' => [
+                'monday' => [
+                    'available' => $this->mondayAvailable,
+                    'start' => $this->mondayStart,
+                    'end' => $this->mondayEnd,
+                ],
+                'tuesday' => [
+                    'available' => $this->tuesdayAvailable,
+                    'start' => $this->tuesdayStart,
+                    'end' => $this->tuesdayEnd,
+                ],
+                'wednesday' => [
+                    'available' => $this->wednesdayAvailable,
+                    'start' => $this->wednesdayStart,
+                    'end' => $this->wednesdayEnd,
+                ],
+                'thursday' => [
+                    'available' => $this->thursdayAvailable,
+                    'start' => $this->thursdayStart,
+                    'end' => $this->thursdayEnd,
+                ],
+                'friday' => [
+                    'available' => $this->fridayAvailable,
+                    'start' => $this->fridayStart,
+                    'end' => $this->fridayEnd,
+                ],
+                'saturday' => [
+                    'available' => $this->saturdayAvailable,
+                    'start' => $this->saturdayStart,
+                    'end' => $this->saturdayEnd,
+                ],
+                'sunday' => [
+                    'available' => $this->sundayAvailable,
+                    'start' => $this->sundayStart,
+                    'end' => $this->sundayEnd,
+                ],
+            ],
+            'exceptions' => $this->exceptions,
+            'blocked_slots' => $this->blockedSlots,
+        ];
+    }
+
+    /**
+     * Toggle a day's availability
+     */
+    public function toggleDay(string $day): void
+    {
+        $prop = "{$day}Available";
+        if (property_exists($this, $prop)) {
+            $this->$prop = !$this->$prop;
+            $this->hasUnsavedChanges = true;
+        }
+    }
+
+    /**
+     * Add an exception (day off) - WITH CONFLICT CHECK
+     */
     public function addException(): void
     {
         $this->validate([
             'newExceptionDate' => 'required|date|after_or_equal:today',
-            'newExceptionReason' => 'nullable|string|max:100',
+        ], [
+            'newExceptionDate.required' => 'Please select a date.',
+            'newExceptionDate.after_or_equal' => 'Date must be today or in the future.',
         ]);
 
-        foreach ($this->exceptions as $exception) {
-            if ($exception['date'] === $this->newExceptionDate) {
-                $this->addError('newExceptionDate', 'This date is already added.');
+        $vendor = $this->getVendor();
+
+        if ($vendor) {
+            // Check for existing scheduled appointments on this date
+            $conflictingAppointments = MaintenanceRequest::where('assigned_vendor_id', $vendor->id)
+                ->whereDate('scheduled_date', $this->newExceptionDate)
+                ->whereIn('status', ['pending_acceptance', 'assigned', 'in_progress'])
+                ->whereIn('scheduling_status', ['confirmed', 'pending_vendor_confirmation', 'pending_tenant_confirmation'])
+                ->with(['property', 'unit'])
+                ->get();
+
+            if ($conflictingAppointments->count() > 0) {
+                $appointmentList = $conflictingAppointments->map(function ($appt) {
+                    $time = $appt->scheduled_start_time
+                        ? date('g:i A', strtotime($appt->scheduled_start_time))
+                        : 'Time TBD';
+                    $location = $appt->property->name ?? 'Property';
+                    if ($appt->unit) {
+                        $location .= " - Unit {$appt->unit->unit_number}";
+                    }
+                    return "• {$location} at {$time}";
+                })->join("\n");
+
+                $this->addError('newExceptionDate',
+                    "Cannot mark this day off. You have {$conflictingAppointments->count()} scheduled appointment(s):\n{$appointmentList}\n\nPlease reschedule these appointments first.");
                 return;
             }
         }
 
+        // Check if date already exists in exceptions
+        $dateExists = collect($this->exceptions)->contains('date', $this->newExceptionDate);
+        if ($dateExists) {
+            $this->addError('newExceptionDate', 'This date is already marked as a day off.');
+            return;
+        }
+
         $this->exceptions[] = [
             'date' => $this->newExceptionDate,
-            'reason' => $this->newExceptionReason ?: 'Day off',
+            'reason' => $this->newExceptionReason ?: 'Day Off',
             'available' => false,
         ];
 
+        // Sort by date
         usort($this->exceptions, fn($a, $b) => $a['date'] <=> $b['date']);
 
         $this->newExceptionDate = '';
         $this->newExceptionReason = '';
-        $this->hasChanges = true;
+        $this->hasUnsavedChanges = true;
+
+        session()->flash('exception-success', 'Day off added. Remember to save your changes.');
     }
 
+    /**
+     * Remove an exception
+     */
     public function removeException(int $index): void
     {
         if (isset($this->exceptions[$index])) {
-            array_splice($this->exceptions, $index, 1);
-            $this->hasChanges = true;
+            unset($this->exceptions[$index]);
+            $this->exceptions = array_values($this->exceptions);
+            $this->hasUnsavedChanges = true;
         }
     }
 
-    protected function buildWeeklyArray(): array
+    /**
+     * Open block slot modal
+     */
+    public function openBlockSlotModal(): void
     {
-        $weekly = [];
-
-        foreach ($this->daysConfig as $day => $label) {
-            $weekly[$day] = [
-                'available' => $this->{$day . 'Available'},
-                'start' => $this->{$day . 'Start'},
-                'end' => $this->{$day . 'End'},
-            ];
-        }
-
-        return $weekly;
+        $this->newBlockDate = '';
+        $this->newBlockStart = '';
+        $this->newBlockEnd = '';
+        $this->newBlockReason = '';
+        $this->resetErrorBag(['newBlockDate', 'newBlockStart', 'newBlockEnd']);
+        $this->showBlockSlotModal = true;
     }
 
-    public function save(): void
+    /**
+     * Close block slot modal
+     */
+    public function closeBlockSlotModal(): void
     {
-        $weekly = $this->buildWeeklyArray();
+        $this->showBlockSlotModal = false;
+    }
 
-        foreach ($weekly as $day => $schedule) {
-            if ($schedule['available']) {
-                if (empty($schedule['start']) || empty($schedule['end'])) {
-                    session()->flash('error', "Start and end times required for {$day}.");
-                    return;
-                }
-                if ($schedule['start'] >= $schedule['end']) {
-                    session()->flash('error', "End time must be after start time for {$day}.");
-                    return;
-                }
-            }
+    /**
+     * Add a blocked time slot - WITH CONFLICT CHECK
+     */
+    public function addBlockedSlot(): void
+    {
+        $this->validate([
+            'newBlockDate' => 'required|date|after_or_equal:today',
+            'newBlockStart' => 'required',
+            'newBlockEnd' => 'required',
+        ], [
+            'newBlockDate.required' => 'Please select a date.',
+            'newBlockStart.required' => 'Please select a start time.',
+            'newBlockEnd.required' => 'Please select an end time.',
+        ]);
+
+        // Validate end time is after start time
+        if ($this->newBlockStart >= $this->newBlockEnd) {
+            $this->addError('newBlockEnd', 'End time must be after start time.');
+            return;
         }
 
         $vendor = $this->getVendor();
 
-        if (!$vendor) {
-            session()->flash('error', 'Vendor profile not found.');
+        if ($vendor) {
+            // Check if this conflicts with an existing appointment
+            $conflicts = MaintenanceRequest::where('assigned_vendor_id', $vendor->id)
+                ->whereDate('scheduled_date', $this->newBlockDate)
+                ->whereIn('status', ['pending_acceptance', 'assigned', 'in_progress'])
+                ->whereNotNull('scheduled_start_time')
+                ->get()
+                ->filter(function ($appt) {
+                    // Check time overlap
+                    $apptStart = $appt->scheduled_start_time;
+                    $apptEnd = $appt->scheduled_end_time ?? date('H:i', strtotime($apptStart) + 3600);
+
+                    return $this->timesOverlap(
+                        $this->newBlockStart,
+                        $this->newBlockEnd,
+                        $apptStart,
+                        $apptEnd
+                    );
+                });
+
+            if ($conflicts->count() > 0) {
+                $conflict = $conflicts->first();
+                $location = $conflict->property->name ?? 'Property';
+                if ($conflict->unit) {
+                    $location .= " - Unit {$conflict->unit->unit_number}";
+                }
+                $time = date('g:i A', strtotime($conflict->scheduled_start_time));
+
+                $this->addError('newBlockStart',
+                    "This time slot conflicts with an existing appointment at {$location} ({$time}). Please reschedule that appointment first.");
+                return;
+            }
+        }
+
+        // Check for duplicate blocked slots
+        $isDuplicate = collect($this->blockedSlots)->contains(function ($slot) {
+            return $slot['date'] === $this->newBlockDate
+                && $slot['start'] === $this->newBlockStart
+                && $slot['end'] === $this->newBlockEnd;
+        });
+
+        if ($isDuplicate) {
+            $this->addError('newBlockStart', 'This time slot is already blocked.');
             return;
         }
 
-        try {
-            $this->exceptions = array_values(array_filter(
-                $this->exceptions,
-                fn($e) => $e['date'] >= now()->toDateString()
-            ));
+        $this->blockedSlots[] = [
+            'date' => $this->newBlockDate,
+            'start' => $this->newBlockStart,
+            'end' => $this->newBlockEnd,
+            'reason' => $this->newBlockReason ?: 'Blocked',
+        ];
 
-            $vendor->availability_schedule = [
-                'weekly' => $weekly,
-                'exceptions' => $this->exceptions,
-            ];
-            $vendor->save();
+        // Sort by date then start time
+        usort($this->blockedSlots, function ($a, $b) {
+            $dateCompare = $a['date'] <=> $b['date'];
+            return $dateCompare !== 0 ? $dateCompare : $a['start'] <=> $b['start'];
+        });
 
-            $this->hasChanges = false;
-            session()->flash('success', 'Availability schedule saved successfully.');
+        $this->showBlockSlotModal = false;
+        $this->hasUnsavedChanges = true;
 
-        } catch (\Exception $e) {
-            Log::error('VendorAvailability: Save failed', ['error' => $e->getMessage()]);
-            session()->flash('error', 'Failed to save. Please try again.');
+        session()->flash('block-success', 'Time slot blocked. Remember to save your changes.');
+    }
+
+    /**
+     * Remove a blocked slot
+     */
+    public function removeBlockedSlot(int $index): void
+    {
+        if (isset($this->blockedSlots[$index])) {
+            unset($this->blockedSlots[$index]);
+            $this->blockedSlots = array_values($this->blockedSlots);
+            $this->hasUnsavedChanges = true;
         }
     }
 
-    public function resetToDefaults(): void
+    /**
+     * Check if two time ranges overlap
+     */
+    protected function timesOverlap(string $start1, string $end1, string $start2, string $end2): bool
     {
-        $this->mondayAvailable = true;
-        $this->mondayStart = '08:00';
-        $this->mondayEnd = '17:00';
+        $s1 = strtotime($start1);
+        $e1 = strtotime($end1);
+        $s2 = strtotime($start2);
+        $e2 = strtotime($end2);
 
-        $this->tuesdayAvailable = true;
-        $this->tuesdayStart = '08:00';
-        $this->tuesdayEnd = '17:00';
-
-        $this->wednesdayAvailable = true;
-        $this->wednesdayStart = '08:00';
-        $this->wednesdayEnd = '17:00';
-
-        $this->thursdayAvailable = true;
-        $this->thursdayStart = '08:00';
-        $this->thursdayEnd = '17:00';
-
-        $this->fridayAvailable = true;
-        $this->fridayStart = '08:00';
-        $this->fridayEnd = '17:00';
-
-        $this->saturdayAvailable = false;
-        $this->saturdayStart = '08:00';
-        $this->saturdayEnd = '17:00';
-
-        $this->sundayAvailable = false;
-        $this->sundayStart = '08:00';
-        $this->sundayEnd = '17:00';
-
-        $this->hasChanges = true;
+        return $s1 < $e2 && $e1 > $s2;
     }
 
+    /**
+     * Copy weekday hours to weekend
+     */
     public function copyWeekdayToWeekend(): void
     {
+        // Use Monday as reference
         $this->saturdayAvailable = $this->mondayAvailable;
         $this->saturdayStart = $this->mondayStart;
         $this->saturdayEnd = $this->mondayEnd;
@@ -273,22 +439,87 @@ class VendorAvailabilitySettings extends Component
         $this->sundayStart = $this->mondayStart;
         $this->sundayEnd = $this->mondayEnd;
 
-        $this->hasChanges = true;
+        $this->hasUnsavedChanges = true;
     }
 
-    public function applyTimeToAll(): void
+    /**
+     * Set all weekdays to same hours
+     */
+    public function applyToAllWeekdays(): void
     {
-        $startTime = $this->mondayStart;
-        $endTime = $this->mondayEnd;
+        // Use Monday as reference
+        $weekdays = ['tuesday', 'wednesday', 'thursday', 'friday'];
 
-        foreach ($this->daysConfig as $day => $label) {
-            if ($this->{$day . 'Available'}) {
-                $this->{$day . 'Start'} = $startTime;
-                $this->{$day . 'End'} = $endTime;
-            }
+        foreach ($weekdays as $day) {
+            $availProp = "{$day}Available";
+            $startProp = "{$day}Start";
+            $endProp = "{$day}End";
+
+            $this->$availProp = $this->mondayAvailable;
+            $this->$startProp = $this->mondayStart;
+            $this->$endProp = $this->mondayEnd;
         }
 
-        $this->hasChanges = true;
+        $this->hasUnsavedChanges = true;
+    }
+
+    /**
+     * Save availability to database
+     */
+    public function save(): void
+    {
+        $vendor = $this->getVendor();
+
+        if (!$vendor) {
+            session()->flash('error', 'Vendor profile not found.');
+            return;
+        }
+
+        $schedule = $this->getScheduleArray();
+
+        $vendor->update([
+            'availability_schedule' => $schedule,
+        ]);
+
+        $this->hasUnsavedChanges = false;
+        session()->flash('success', 'Availability schedule saved successfully!');
+    }
+
+    /**
+     * Track changes for unsaved indicator
+     */
+    public function updated($propertyName): void
+    {
+        // Track changes for any property except UI state
+        if (!in_array($propertyName, ['hasUnsavedChanges', 'showBlockSlotModal', 'newBlockDate', 'newBlockStart', 'newBlockEnd', 'newBlockReason', 'newExceptionDate', 'newExceptionReason'])) {
+            $this->hasUnsavedChanges = true;
+        }
+    }
+
+    /**
+     * Get upcoming blocked slots (next 30 days)
+     */
+    public function getUpcomingBlockedSlotsProperty(): array
+    {
+        $today = date('Y-m-d');
+        $thirtyDaysFromNow = date('Y-m-d', strtotime('+30 days'));
+
+        return array_filter($this->blockedSlots, function ($slot) use ($today, $thirtyDaysFromNow) {
+            return $slot['date'] >= $today && $slot['date'] <= $thirtyDaysFromNow;
+        });
+    }
+
+    /**
+     * Get upcoming exceptions (next 30 days)
+     */
+    public function getUpcomingExceptionsProperty(): array
+    {
+        $today = date('Y-m-d');
+        $thirtyDaysFromNow = date('Y-m-d', strtotime('+30 days'));
+
+        return array_filter($this->exceptions, function ($exc) use ($today, $thirtyDaysFromNow) {
+            return $exc['date'] >= $today && $exc['date'] <= $thirtyDaysFromNow;
+        });
     }
 
     public function render()
