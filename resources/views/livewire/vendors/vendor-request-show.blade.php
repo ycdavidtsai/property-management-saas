@@ -73,6 +73,27 @@
         </div>
     @endif
 
+    {{-- Tenant Proposed Appointment Alert --}}
+    @if($maintenanceRequest->scheduling_status === 'pending_vendor_confirmation' && $maintenanceRequest->scheduled_date)
+        <div class="mx-4 mt-4 p-4 bg-blue-50 border-2 border-blue-300 rounded-xl">
+            <div class="flex items-start">
+                <div class="flex-shrink-0 bg-blue-100 rounded-full p-2 mr-3">
+                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <h3 class="font-semibold text-blue-900">Tenant Requested a Time</h3>
+                    <p class="text-sm text-blue-700 mt-1">
+                        <strong>{{ $maintenanceRequest->scheduled_date->format('l, M j, Y') }}</strong><br>
+                        {{ date('g:i A', strtotime($maintenanceRequest->scheduled_start_time)) }} - {{ date('g:i A', strtotime($maintenanceRequest->scheduled_end_time)) }}
+                    </p>
+                    <p class="text-xs text-blue-600 mt-2">Go to the Schedule tab to confirm or propose a different time.</p>
+                </div>
+            </div>
+        </div>
+    @endif
+
     {{-- Quick Info Cards --}}
     <div class="px-4 mt-4 grid grid-cols-2 gap-3">
         {{-- Property Card --}}
@@ -125,22 +146,40 @@
         </a>
     </div>
 
-    {{-- Tab Navigation --}}
+    {{-- Tab Navigation - UPDATED with Schedule tab --}}
     <div class="px-4 mt-4">
         <div class="bg-white rounded-xl shadow-sm p-1 flex">
             <button @click="activeTab = 'overview'"
                     :class="activeTab === 'overview' ? 'bg-blue-600 text-white' : 'text-gray-600'"
-                    class="flex-1 py-2.5 px-4 rounded-lg font-medium text-sm transition-colors">
+                    class="flex-1 py-2.5 px-3 rounded-lg font-medium text-sm transition-colors">
                 Overview
             </button>
+
+            {{-- Schedule Tab - Only show after vendor accepted --}}
+            @if(in_array($maintenanceRequest->status, ['assigned', 'in_progress']))
+                <button @click="activeTab = 'schedule'"
+                        :class="activeTab === 'schedule' ? 'bg-blue-600 text-white' : 'text-gray-600'"
+                        class="flex-1 py-2.5 px-3 rounded-lg font-medium text-sm transition-colors flex items-center justify-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    <span>Schedule</span>
+                    @if($maintenanceRequest->scheduling_status === 'confirmed')
+                        <span class="w-2 h-2 bg-green-400 rounded-full"></span>
+                    @elseif($maintenanceRequest->scheduling_status === 'pending_vendor_confirmation')
+                        <span class="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></span>
+                    @endif
+                </button>
+            @endif
+
             <button @click="activeTab = 'updates'"
                     :class="activeTab === 'updates' ? 'bg-blue-600 text-white' : 'text-gray-600'"
-                    class="flex-1 py-2.5 px-4 rounded-lg font-medium text-sm transition-colors">
+                    class="flex-1 py-2.5 px-3 rounded-lg font-medium text-sm transition-colors">
                 Updates ({{ $updates->total() }})
             </button>
             <button @click="activeTab = 'add'"
                     :class="activeTab === 'add' ? 'bg-blue-600 text-white' : 'text-gray-600'"
-                    class="flex-1 py-2.5 px-4 rounded-lg font-medium text-sm transition-colors">
+                    class="flex-1 py-2.5 px-3 rounded-lg font-medium text-sm transition-colors">
                 + Add
             </button>
         </div>
@@ -256,6 +295,25 @@
                             <span class="font-medium text-gray-900 text-sm">{{ $maintenanceRequest->started_at->format('M d, Y g:i A') }}</span>
                         </div>
                     @endif
+                    {{-- Scheduled Appointment Info --}}
+                    @if($maintenanceRequest->scheduled_date)
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-500 text-sm">Scheduled Visit</span>
+                            <div class="text-right">
+                                <span class="font-medium text-gray-900 text-sm">{{ $maintenanceRequest->scheduled_date->format('M d, Y') }}</span>
+                                @if($maintenanceRequest->scheduled_start_time)
+                                    <br><span class="text-xs text-gray-600">{{ date('g:i A', strtotime($maintenanceRequest->scheduled_start_time)) }}</span>
+                                @endif
+                                @if($maintenanceRequest->scheduling_status === 'confirmed')
+                                    <span class="ml-1 text-xs text-green-600">✓ Confirmed</span>
+                                @elseif($maintenanceRequest->scheduling_status === 'pending_vendor_confirmation')
+                                    <span class="ml-1 text-xs text-amber-600">Awaiting your confirmation</span>
+                                @elseif($maintenanceRequest->scheduling_status === 'pending_tenant_confirmation')
+                                    <span class="ml-1 text-xs text-blue-600">Awaiting tenant</span>
+                                @endif
+                            </div>
+                        </div>
+                    @endif
                     @if($maintenanceRequest->estimated_cost)
                         <div class="flex items-center justify-between">
                             <span class="text-gray-500 text-sm">Estimated Cost</span>
@@ -265,6 +323,49 @@
                 </div>
             </div>
         </div>
+
+        {{-- ================================== --}}
+        {{-- SCHEDULE TAB - NEW --}}
+        {{-- ================================== --}}
+        @if(in_array($maintenanceRequest->status, ['assigned', 'in_progress']))
+        <div x-show="activeTab === 'schedule'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                {{-- Header --}}
+                <div class="px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
+                    <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        Schedule Visit with Tenant
+                    </h3>
+                    <p class="text-sm text-gray-600 mt-1">
+                        Coordinate with {{ $maintenanceRequest->tenant->name ?? 'the tenant' }} on when you'll visit.
+                    </p>
+                </div>
+
+                {{-- Tenant Proposed Alert --}}
+                @if($maintenanceRequest->scheduling_status === 'pending_vendor_confirmation')
+                    <div class="mx-4 mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                        <div class="flex items-center gap-2 text-amber-800">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                            </svg>
+                            <span class="font-medium text-sm">Tenant requested this time - please confirm or propose different time</span>
+                        </div>
+                    </div>
+                @endif
+
+                {{-- Scheduler Component --}}
+                <div class="p-4">
+                    @livewire('maintenance-requests.appointment-scheduler', [
+                        'request' => $maintenanceRequest,
+                        'userRole' => 'vendor',
+                        'viewOnly' => false
+                    ], key('vendor-scheduler-' . $maintenanceRequest->id))
+                </div>
+            </div>
+        </div>
+        @endif
 
         {{-- Updates Tab --}}
         <div x-show="activeTab === 'updates'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
@@ -277,6 +378,12 @@
                                     <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
                                         <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                                        </svg>
+                                    </div>
+                                @elseif($update->update_type === 'scheduling')
+                                    <div class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                                        <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                                         </svg>
                                     </div>
                                 @else
@@ -384,8 +491,8 @@
                     </div>
 
                     {{-- Upload Progress --}}
-                    <div wire:loading wire:target="photos" class="flex items-center justify-center p-4 bg-blue-50 rounded-xl">
-                        <svg class="animate-spin h-5 w-5 text-blue-600 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <div wire:loading wire:target="photos" class="flex items-center justify-center p-3 bg-blue-50 rounded-xl">
+                        <svg class="animate-spin h-5 w-5 text-blue-600 mr-2" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
@@ -393,7 +500,7 @@
                     </div>
 
                     {{-- Photo Preview --}}
-                    @if(is_array($photos) && count($photos) > 0)
+                    @if($photos && count($photos) > 0)
                         <div class="mt-3 grid grid-cols-4 gap-2">
                             @foreach($photos as $photo)
                                 <div class="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
@@ -401,19 +508,7 @@
                                 </div>
                             @endforeach
                         </div>
-                        <p class="text-sm text-green-600 mt-2 flex items-center">
-                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                            </svg>
-                            {{ count($photos) }} photo(s) ready
-                        </p>
                     @endif
-
-                    @error('photos.*')
-                        <p class="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded-lg">{{ $message }}</p>
-                    @enderror
-
-                    <p class="text-xs text-gray-500 mt-2">Max 5MB per image</p>
                 </div>
 
                 {{-- Submit Button --}}
@@ -429,7 +524,13 @@
     </div>
 
     {{-- Sticky Bottom Action Bar --}}
-    <div class="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg safe-area-pb z-50">
+    {{-- <div class="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg safe-area-pb z-50"> --}}
+    {{-- Sticky Bottom Action Bar - Hidden on Schedule tab --}}
+    <div x-show="activeTab !== 'schedule'"
+        x-transition:leave="transition ease-in duration-200"
+        x-transition:leave-start="opacity-100 translate-y-0"
+        x-transition:leave-end="opacity-0 translate-y-full"
+        class="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg safe-area-pb z-50">
         <div class="px-4 py-3">
             @if($maintenanceRequest->status === 'pending_acceptance')
                 <div class="flex gap-3">
@@ -463,14 +564,12 @@
                     <span wire:loading wire:target="updateStatus">Starting...</span>
                 </button>
             @elseif($maintenanceRequest->status === 'in_progress')
-                <button wire:click="updateStatus('completed')"
-                        wire:loading.attr="disabled"
+                <button wire:click="$set('showCompleteModal', true)"
                         class="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:bg-green-400 text-white font-semibold py-4 px-6 rounded-xl transition-colors flex items-center justify-center min-h-[56px] text-lg">
                     <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
-                    <span wire:loading.remove wire:target="updateStatus">Complete Work</span>
-                    <span wire:loading wire:target="updateStatus">Completing...</span>
+                    Complete Work
                 </button>
             @elseif($maintenanceRequest->status === 'completed')
                 <div class="bg-green-50 rounded-xl p-4 text-center">
@@ -517,10 +616,10 @@
                         'other' => ['label' => 'Other reason', 'desc' => 'Explain in notes'],
                     ] as $value => $option)
                         <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer transition-colors
-                                      {{ $rejectionReason === $value ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300' }}">
-                            <input type="radio" wire:model="rejectionReason" value="{{ $value }}" class="hidden">
+                            {{ $rejectionReason === $value ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300' }}">
+                            <input type="radio" wire:model.live="rejectionReason" value="{{ $value }}" class="hidden">
                             <div class="flex-1">
-                                <span class="font-medium text-gray-900">{{ $option['label'] }}</span>
+                                <p class="font-medium text-gray-900">{{ $option['label'] }}</p>
                                 <p class="text-sm text-gray-500">{{ $option['desc'] }}</p>
                             </div>
                             @if($rejectionReason === $value)
@@ -530,14 +629,10 @@
                             @endif
                         </label>
                     @endforeach
-
-                    @error('rejectionReason')
-                        <p class="text-red-600 text-sm bg-red-50 p-3 rounded-xl">{{ $message }}</p>
-                    @enderror
                 </div>
 
-                {{-- Notes --}}
-                <div class="px-6 pb-4">
+                {{-- Additional Notes --}}
+                <div class="px-6 py-4 border-t">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Additional Notes (Optional)</label>
                     <textarea wire:model="rejectionNotes"
                               rows="3"
@@ -551,11 +646,12 @@
                             class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-4 px-6 rounded-xl transition-colors">
                         Cancel
                     </button>
-                    <button wire:click="confirmRejection"
+                    <button wire:click="rejectAssignment"
                             wire:loading.attr="disabled"
-                            class="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-semibold py-4 px-6 rounded-xl transition-colors">
-                        <span wire:loading.remove wire:target="confirmRejection">Confirm Rejection</span>
-                        <span wire:loading wire:target="confirmRejection">Rejecting...</span>
+                            @if(!$rejectionReason) disabled @endif
+                            class="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white font-semibold py-4 px-6 rounded-xl transition-colors">
+                        <span wire:loading.remove wire:target="rejectAssignment">Reject Job</span>
+                        <span wire:loading wire:target="rejectAssignment">Rejecting...</span>
                     </button>
                 </div>
             </div>
@@ -569,23 +665,16 @@
         <div class="fixed inset-0 bg-black bg-opacity-50" wire:click="$set('showCompleteModal', false)"></div>
 
         <div class="fixed inset-x-0 bottom-0 transform transition-transform duration-300 ease-out">
-            <div class="bg-white rounded-t-3xl max-h-[90vh] overflow-y-auto safe-area-pb">
+            <div class="bg-white rounded-t-3xl max-h-[85vh] overflow-y-auto safe-area-pb">
                 {{-- Handle --}}
                 <div class="flex justify-center py-3">
                     <div class="w-12 h-1.5 bg-gray-300 rounded-full"></div>
                 </div>
 
                 {{-- Header --}}
-                <div class="px-6 pb-4 border-b flex items-center">
-                    <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mr-4">
-                        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                    </div>
-                    <div>
-                        <h3 class="text-xl font-bold text-gray-900">Complete Work</h3>
-                        <p class="text-sm text-gray-500">Provide completion details</p>
-                    </div>
+                <div class="px-6 pb-4 border-b">
+                    <h3 class="text-xl font-bold text-gray-900">Complete Work</h3>
+                    <p class="text-sm text-gray-500 mt-1">Add completion details and photos</p>
                 </div>
 
                 {{-- Form --}}

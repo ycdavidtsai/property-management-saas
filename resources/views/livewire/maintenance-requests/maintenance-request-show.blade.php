@@ -129,6 +129,29 @@
                         </span>
                     @endif
                 </button>
+
+                {{-- NEW: Appointment Tab - Only show when vendor is assigned --}}
+                @if($request->assigned_vendor_id && in_array($request->status, ['pending_acceptance', 'assigned', 'in_progress']))
+                    <button
+                        wire:click="setActiveTab('appointment')"
+                        class="px-6 py-4 text-sm font-medium border-b-2 flex items-center gap-2 {{ $activeTab === 'appointment' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        Appointment
+                        @if($request->scheduling_status === 'confirmed')
+                            <span class="ml-1 px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-800">
+                                ✓
+                            </span>
+                        @elseif($request->scheduling_status && $request->scheduling_status !== 'confirmed')
+                            <span class="ml-1 px-2 py-0.5 text-xs rounded-full bg-yellow-100 text-yellow-800">
+                                Pending
+                            </span>
+                        @endif
+                    </button>
+                @endif
+
                 <button
                     wire:click="setActiveTab('cost')"
                     class="px-6 py-4 text-sm font-medium border-b-2 {{ $activeTab === 'cost' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
@@ -218,211 +241,292 @@
                                     @enderror
 
                                     <!-- Upload Progress -->
-                                    <div wire:loading wire:target="newCommentPhotos" class="flex items-center text-blue-600 text-sm mt-2">
-                                        <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        Uploading photos...
-                                    </div>
-
-                                    <!-- Upload Success -->
-                                    @if(count($newCommentPhotos) > 0)
-                                        <div wire:loading.remove wire:target="newCommentPhotos" class="flex items-center text-green-600 text-sm mt-2">
-                                            <svg class="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                                            </svg>
-                                            {{ count($newCommentPhotos) }} photo(s) ready
-                                        </div>
-                                    @endif
-
-                                    <p class="text-xs text-gray-500 mt-1">
-                                        Maximum file size: 5MB per image
-                                    </p>
-                                </div>
-
-                                <div class="flex items-center justify-between">
-                                    <!-- Internal/Public Toggle (Admin/Manager/Landlord only) -->
-                                    @if($canAddInternalNotes)
-                                        <label class="flex items-center">
-                                            <input
-                                                type="checkbox"
-                                                wire:model="isInternalComment"
-                                                class="rounded border-gray-300 text-red-600 shadow-sm focus:border-red-500 focus:ring-red-500"
-                                            >
-                                            <span class="ml-2 text-sm text-gray-700">
-                                                Internal Note
-                                                <span class="text-xs text-gray-500">(Manager only - not visible to tenant)</span>
-                                            </span>
-                                        </label>
-                                    @else
-                                        <div></div>
-                                    @endif
-
-                                    <button
-                                        type="submit"
-                                        wire:loading.attr="disabled"
-                                        wire:target="newCommentPhotos,addComment"
-                                        class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-sm text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        <span wire:loading.remove wire:target="newCommentPhotos,addComment">Add Update</span>
-                                        <span wire:loading wire:target="newCommentPhotos" class="flex items-center">
-                                            <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <div wire:loading wire:target="newCommentPhotos" class="mt-2">
+                                        <div class="flex items-center text-sm text-gray-500">
+                                            <svg class="animate-spin h-4 w-4 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24">
                                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                             </svg>
-                                            Processing...
-                                        </span>
-                                        <span wire:loading wire:target="addComment">Saving...</span>
+                                            Uploading...
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Internal Note Toggle (for staff only) -->
+                                @if($canAddInternalNotes)
+                                    <div class="flex items-center">
+                                        <input
+                                            type="checkbox"
+                                            wire:model="isInternalComment"
+                                            id="isInternalComment"
+                                            class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        >
+                                        <label for="isInternalComment" class="ml-2 text-sm text-gray-700">
+                                            Mark as internal note (not visible to tenant)
+                                        </label>
+                                    </div>
+                                @endif
+
+                                <div class="flex justify-end">
+                                    <button
+                                        type="submit"
+                                        class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-sm text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                    >
+                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                                        </svg>
+                                        Add Update
                                     </button>
                                 </div>
                             </div>
                         </form>
                     </div>
 
-                    <!-- Internal Updates Toggle (Admin/Manager/Landlord only) -->
+                    <!-- Internal Notes Toggle -->
                     @if($canAddInternalNotes)
-                        <div class="mb-4 p-3 bg-white border border-gray-300 rounded-lg">
+                        <div class="mb-4 flex items-center justify-between">
                             <button
                                 wire:click="toggleInternalUpdates"
-                                class="w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-md transition-colors {{ $showInternalUpdates ? 'bg-blue-50 text-blue-700 hover:bg-blue-100' : 'bg-gray-50 text-gray-700 hover:bg-gray-100' }}"
+                                class="text-sm text-gray-600 hover:text-gray-900 flex items-center"
                             >
-                                <span class="flex items-center">
-                                    @if($showInternalUpdates)
-                                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                                        </svg>
-                                        <span class="font-semibold">Showing All Updates</span>
-                                        <span class="ml-2 text-xs">(including internal notes)</span>
-                                    @else
-                                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
-                                        </svg>
-                                        <span class="font-semibold">Showing Public Updates Only</span>
-                                        <span class="ml-2 text-xs">(internal notes hidden)</span>
-                                    @endif
-                                </span>
-                                <svg class="w-5 h-5 transform {{ $showInternalUpdates ? 'rotate-180' : '' }} transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                                </svg>
+                                @if($showInternalUpdates)
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+                                    </svg>
+                                    Hide Internal Notes
+                                @else
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                    </svg>
+                                    Show Internal Notes
+                                @endif
                             </button>
                         </div>
                     @endif
 
                     <!-- Timeline -->
                     @if($updates->count() > 0)
-                        <div class="space-y-4">
-                            @foreach($updates as $update)
-                                <div class="flex space-x-3">
-                                    <div class="flex-shrink-0">
-                                        <div class="h-10 w-10 rounded-full bg-gray-400 flex items-center justify-center">
-                                            <span class="text-white text-sm font-medium">
-                                                {{ strtoupper(substr($update->user->name ?? 'S', 0, 2)) }}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div class="flex-1">
-                                        <div class="bg-gray-50 rounded-lg p-4 {{ $update->is_internal ? 'border-2 border-red-200 bg-red-50' : '' }}">
-                                            <div class="flex items-start justify-between mb-2">
-                                                <div class="flex-1">
-                                                    <p class="text-sm font-medium text-gray-900">
-                                                        {{ $update->user->name ?? 'System' }}
-                                                        @if($update->is_internal)
-                                                            <span class="ml-2 px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800">
-                                                                Internal
-                                                            </span>
-                                                        @endif
-                                                    </p>
-                                                    <p class="text-xs text-gray-500">{{ $update->created_at->diffForHumans() }}</p>
-                                                </div>
-
-                                                <!-- Edit/Delete Actions -->
-                                                @if($editingUpdateId !== $update->id && $update->canBeEditedBy(auth()->user()))
-                                                    <div class="flex space-x-2">
-                                                        <button
-                                                            wire:click="editUpdate('{{ $update->id }}')"
-                                                            class="text-xs text-blue-600 hover:text-blue-900"
-                                                        >
-                                                            Edit
-                                                        </button>
-                                                        @if($update->canBeDeletedBy(auth()->user()))
-                                                            <button
-                                                                wire:click="deleteUpdate('{{ $update->id }}')"
-                                                                wire:confirm="Are you sure you want to delete this update?"
-                                                                class="text-xs text-red-600 hover:text-red-900"
-                                                            >
-                                                                Delete
-                                                            </button>
-                                                        @endif
-                                                    </div>
-                                                @endif
-                                            </div>
-
-                                            <!-- Edit Form -->
-                                            @if($editingUpdateId === $update->id)
-                                                <form wire:submit.prevent="saveEdit">
-                                                    <textarea
-                                                        wire:model="editingMessage"
-                                                        rows="3"
-                                                        class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 mb-2"
-                                                    ></textarea>
-                                                    <div class="flex space-x-2">
-                                                        <button
-                                                            type="submit"
-                                                            class="px-3 py-1 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
-                                                        >
-                                                            Save
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            wire:click="cancelEdit"
-                                                            class="px-3 py-1 bg-gray-300 text-gray-700 rounded-md text-sm hover:bg-gray-400"
-                                                        >
-                                                            Cancel
-                                                        </button>
-                                                    </div>
-                                                </form>
-                                            @else
-                                                <!-- Display Message -->
-                                                <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ $update->message }}</p>
-
-                                                <!-- Display Photos -->
-                                                @if($update->photos && count($update->photos) > 0)
-                                                    <div class="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2">
-                                                        @foreach($update->photos as $photo)
-                                                            <img src="{{ Storage::url($photo) }}" alt="Update photo" class="rounded-lg shadow-md">
-                                                        @endforeach
-                                                    </div>
-                                                @endif
-
-                                                <!-- Update Type Badge -->
-                                                @if($update->update_type)
-                                                    <span class="mt-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                                                        {{ ucfirst(str_replace('_', ' ', $update->update_type)) }}
-                                                    </span>
-                                                @endif
+                        <div class="flow-root">
+                            <ul role="list" class="-mb-8">
+                                @foreach($updates as $index => $update)
+                                    <li>
+                                        <div class="relative pb-8">
+                                            @if(!$loop->last)
+                                                <span class="absolute left-4 top-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true"></span>
                                             @endif
+                                            <div class="relative flex space-x-3">
+                                                <div>
+                                                    <span class="h-8 w-8 rounded-full flex items-center justify-center ring-8 ring-white
+                                                        @if($update->update_type === 'status_change') bg-blue-500
+                                                        @elseif($update->update_type === 'assignment') bg-purple-500
+                                                        @elseif($update->is_internal) bg-yellow-500
+                                                        @else bg-gray-400
+                                                        @endif">
+                                                        @if($update->update_type === 'status_change')
+                                                            <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                                            </svg>
+                                                        @elseif($update->update_type === 'assignment')
+                                                            <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                                            </svg>
+                                                        @elseif($update->update_type === 'scheduling')
+                                                            <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                                            </svg>
+                                                        @else
+                                                            <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                                                            </svg>
+                                                        @endif
+                                                    </span>
+                                                </div>
+                                                <div class="flex-1 min-w-0">
+                                                    <div>
+                                                        <div class="text-sm">
+                                                            <span class="font-medium text-gray-900">{{ $update->user->name ?? 'System' }}</span>
+                                                            @if($update->is_internal)
+                                                                <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                                                                    Internal
+                                                                </span>
+                                                            @endif
+                                                        </div>
+                                                        <p class="mt-0.5 text-sm text-gray-500">
+                                                            {{ $update->created_at->format('M d, Y g:i A') }}
+                                                            ({{ $update->created_at->diffForHumans() }})
+                                                        </p>
+                                                    </div>
+                                                    <div class="mt-2 text-sm text-gray-700">
+                                                        @if($editingUpdateId === $update->id)
+                                                            <!-- Edit Form -->
+                                                            <div class="space-y-2">
+                                                                <textarea
+                                                                    wire:model="editingMessage"
+                                                                    rows="3"
+                                                                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                                ></textarea>
+                                                                <div class="flex space-x-2">
+                                                                    <button
+                                                                        wire:click="saveEdit"
+                                                                        class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                                                                    >
+                                                                        Save
+                                                                    </button>
+                                                                    <button
+                                                                        wire:click="cancelEdit"
+                                                                        class="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                                                                    >
+                                                                        Cancel
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        @else
+                                                            <p class="whitespace-pre-wrap">{{ $update->message }}</p>
+
+                                                            <!-- Photos -->
+                                                            @if($update->photos && count($update->photos) > 0)
+                                                                <div class="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2">
+                                                                    @foreach($update->photos as $photo)
+                                                                        <img src="{{ Storage::url($photo) }}" alt="Update photo" class="rounded-lg shadow-sm max-h-32 object-cover">
+                                                                    @endforeach
+                                                                </div>
+                                                            @endif
+
+                                                            <!-- Edit/Delete Actions -->
+                                                            @if($update->canBeEditedBy(auth()->user()) || $update->canBeDeletedBy(auth()->user()))
+                                                                <div class="mt-2 flex space-x-2">
+                                                                    @if($update->canBeEditedBy(auth()->user()))
+                                                                        <button
+                                                                            wire:click="editUpdate({{ $update->id }})"
+                                                                            class="text-xs text-gray-500 hover:text-blue-600"
+                                                                        >
+                                                                            Edit
+                                                                        </button>
+                                                                    @endif
+                                                                    @if($update->canBeDeletedBy(auth()->user()))
+                                                                        <button
+                                                                            wire:click="deleteUpdate({{ $update->id }})"
+                                                                            onclick="return confirm('Are you sure you want to delete this update?')"
+                                                                            class="text-xs text-gray-500 hover:text-red-600"
+                                                                        >
+                                                                            Delete
+                                                                        </button>
+                                                                    @endif
+                                                                </div>
+                                                            @endif
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-                            @endforeach
+                                    </li>
+                                @endforeach
+                            </ul>
                         </div>
 
-                        @if($updates->hasPages())
-                            <div class="mt-6">
-                                {{ $updates->links() }}
-                            </div>
-                        @endif
+                        <!-- Pagination -->
+                        <div class="mt-6">
+                            {{ $updates->links() }}
+                        </div>
                     @else
-                        <div class="text-center py-12">
+                        <div class="text-center py-8">
                             <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                             </svg>
                             <p class="mt-2 text-sm text-gray-500">No updates yet. Be the first to add one!</p>
                         </div>
                     @endif
                 </div>
+
+            {{-- NEW: Appointment Tab Content --}}
+            @elseif($activeTab === 'appointment')
+                <div class="space-y-6">
+                    {{-- Header --}}
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="text-lg font-semibold text-gray-900">Schedule Vendor Visit</h4>
+                            <p class="text-sm text-gray-600 mt-1">
+                                @if(auth()->user()->role === 'tenant')
+                                    Coordinate with the vendor on when they can visit to complete the work.
+                                @else
+                                    View the scheduled appointment between the tenant and vendor.
+                                @endif
+                            </p>
+                        </div>
+
+                        {{-- Quick status badge --}}
+                        @if($request->scheduling_status)
+                            <span class="px-3 py-1 text-sm font-medium rounded-full
+                                @if($request->scheduling_status === 'confirmed') bg-green-100 text-green-800
+                                @else bg-yellow-100 text-yellow-800
+                                @endif">
+                                @if($request->scheduling_status === 'confirmed')
+                                    ✓ Confirmed
+                                @elseif($request->scheduling_status === 'pending_vendor_confirmation')
+                                    Awaiting Vendor
+                                @elseif($request->scheduling_status === 'pending_tenant_confirmation')
+                                    Awaiting Tenant
+                                @else
+                                    {{ ucfirst(str_replace('_', ' ', $request->scheduling_status)) }}
+                                @endif
+                            </span>
+                        @endif
+                    </div>
+
+                    {{-- Vendor info reminder --}}
+                    @if($request->assignedVendor)
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                            <div class="flex items-center gap-3">
+                                <div class="flex-shrink-0">
+                                    <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-600">Assigned Vendor</p>
+                                    <p class="font-medium text-gray-900">{{ $request->assignedVendor->name }}</p>
+                                    @if($request->assignedVendor->phone)
+                                        <p class="text-sm text-gray-500">{{ $request->assignedVendor->phone }}</p>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+
+                    {{-- The Appointment Scheduler Component --}}
+                    {{-- Tenant can schedule, Landlord is view-only --}}
+                    @php
+                        $isViewOnly = !in_array(auth()->user()->role, ['tenant', 'vendor']);
+                        $userRole = auth()->user()->role === 'vendor' ? 'vendor' : (auth()->user()->role === 'tenant' ? 'tenant' : 'landlord');
+                    @endphp
+
+                    @livewire('maintenance-requests.appointment-scheduler', [
+                        'request' => $request,
+                        'userRole' => $userRole,
+                        'viewOnly' => $isViewOnly
+                    ], key('scheduler-' . $request->id))
+
+                    {{-- Additional info for landlords --}}
+                    @if($isViewOnly && !$request->scheduled_date)
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <div class="flex items-start gap-3">
+                                <svg class="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                                </svg>
+                                <div>
+                                    <p class="text-sm text-blue-800">
+                                        <strong>Note:</strong> The tenant and vendor will coordinate the appointment time directly.
+                                        You'll be notified once they confirm a time.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+                </div>
+
             @elseif($activeTab === 'cost')
                 <!-- Cost Tab -->
                 <div class="space-y-6">

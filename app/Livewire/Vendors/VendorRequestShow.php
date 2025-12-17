@@ -27,6 +27,29 @@ class VendorRequestShow extends Component
     public $rejectionReason = '';
     public $rejectionNotes = '';
 
+    /**
+ * Add these to your VendorRequestShow.php Livewire component
+ * File: app/Livewire/Vendors/VendorRequestShow.php
+ *
+ * This enables vendors to schedule appointments from their portal.
+ */
+
+// ADD this property to listen for scheduler events:
+protected $listeners = [
+    'appointment-scheduled' => 'refreshRequest',
+    'appointment-confirmed' => 'refreshRequest',
+    'appointment-cleared' => 'refreshRequest',
+];
+
+// ADD this method:
+/**
+ * Refresh the maintenance request after scheduling changes
+ */
+public function refreshRequest()
+{
+    $this->maintenanceRequest->refresh();
+}
+
     protected $rules = [
         'message' => 'required|string|max:1000',
         'photos.*' => 'nullable|image|max:5120', // 5MB max

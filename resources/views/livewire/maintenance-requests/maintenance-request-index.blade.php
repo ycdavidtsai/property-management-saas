@@ -72,6 +72,24 @@
                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-{{ $request->status_color }}-100 text-{{ $request->status_color }}-800">
                                         {{ ucfirst(str_replace('_', ' ', $request->status)) }}
                                     </span>
+                                    {{-- Scheduling Status Badge (Simple) --}}
+@if($request->scheduling_status === 'confirmed')
+    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+        ✓ Appointment Confirmed
+    </span>
+@elseif($request->scheduling_status === 'pending_vendor_confirmation')
+    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+        Awaiting Vendor
+    </span>
+@elseif($request->scheduling_status === 'pending_tenant_confirmation')
+    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+        Awaiting Tenant
+    </span>
+@elseif($request->assigned_vendor_id && in_array($request->status, ['assigned', 'in_progress']))
+    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+        Not Scheduled
+    </span>
+@endif
                                 </div>
                                 <p class="text-gray-600 mb-2">{{ Str::limit($request->description, 150) }}</p>
                                 <div class="flex items-center text-sm text-gray-500 space-x-4">
