@@ -38,25 +38,25 @@ class MaintenanceRequestShow extends Component
     public $showInternalUpdates = false;
 
     /**
- * Add these to your MaintenanceRequestShow.php Livewire component
- * File: app/Livewire/MaintenanceRequests/MaintenanceRequestShow.php
- */
+     * Add these to your MaintenanceRequestShow.php Livewire component
+     * File: app/Livewire/MaintenanceRequests/MaintenanceRequestShow.php
+     */
 
-// ADD this property to listen for scheduler events:
-protected $listeners = [
-    'appointment-scheduled' => 'refreshRequest',
-    'appointment-confirmed' => 'refreshRequest',
-    'appointment-cleared' => 'refreshRequest',
-];
+    // ADD this property to listen for scheduler events:
+    protected $listeners = [
+        'appointment-scheduled' => 'refreshRequest',
+        'appointment-confirmed' => 'refreshRequest',
+        'appointment-cleared' => 'refreshRequest',
+    ];
 
-// ADD this method:
-/**
- * Refresh the maintenance request after scheduling changes
- */
-public function refreshRequest()
-{
-    $this->request->refresh();
-}
+    // ADD this method:
+    /**
+     * Refresh the maintenance request after scheduling changes
+     */
+    public function refreshRequest()
+    {
+        $this->request->refresh();
+    }
 
     protected $queryString = [
         'activeTab' => ['except' => 'details'],

@@ -232,7 +232,7 @@ class AppointmentScheduler extends Component
 
         session()->flash('message', $result['message']);
 
-        // Dispatch event for parent components
+        // Dispatch event for parent components, check line 45 in MaintenanceRequestShow.php livewire component
         $this->dispatch('appointment-scheduled');
     }
 
